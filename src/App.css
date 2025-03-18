@@ -36,3 +36,8 @@
     transform: rotate(360deg);
   }
 }
+@media (min-width: 992px) { /* lg (large) screens and above */
+  .content-area {
+    margin-left: 200px; /* Add left margin only on larger screens */
+  }
+}
