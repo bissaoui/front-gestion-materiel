@@ -11,6 +11,10 @@ import NotFound from "./components/NotFound";
 // Bootstrap Imports
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min";
+import ArticleList from "./pages/Article/ArticleList";
+import CreateArticle from "./pages/Article/CreateArticle";
+import CreateDemande from "./pages/Demandes/CreateDemande";
+import MesDemandes from "./pages/Demandes/MyDemands";
 
 const App = () => {
   return (
@@ -28,22 +32,29 @@ const MainApp = () => {
   const isLoginPage = location.pathname === "/login";
 
   return (
-    <div className="d-flex">
-      {/* Sidebar: Hidden on small screens, shown on larger screens */}
-      {!isLoginPage && isLoggedIn && (
-        <div className="d-none d-lg-block">
-          <Sidebar />
-        </div>
-      )}
+    <div className="container-fluid">
+      <div className="row">
+        {/* Sidebar: Hidden on small screens (d-none d-lg-block) */}
+        {!isLoginPage && isLoggedIn && (
+          <div className="col-lg-2 d-none d-lg-block  text-white">
+            <Sidebar />
+          </div>
+        )}
 
-      {/* Main Content: Adds margin-left (200px) on medium & larger screens, no margin on small screens */}
-      <div className={`flex-grow-1 ${!isLoginPage && isLoggedIn ? "content-area" : "w-100"}`}>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        {/* Main Content */}
+        <div className={`${!isLoginPage && isLoggedIn ? "col-lg-9" : "col-12"} p-4`}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/articles" element={<ProtectedRoute><ArticleList /></ProtectedRoute>} />
+            <Route path="*" element={<NotFound />} />
+            <Route path="/articles/create" element={<ProtectedRoute><CreateArticle /></ProtectedRoute>} />
+            <Route path="/demandes/create" element={<ProtectedRoute><CreateDemande /></ProtectedRoute>} />
+            <Route path="/demandes" element={<ProtectedRoute><MesDemandes /></ProtectedRoute>} />
+
+          </Routes>
+        </div>
       </div>
     </div>
   );

@@ -1,17 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { Card, Container, Row, Col, Spinner } from "react-bootstrap";
+import { Card, Container, Row, Col, Spinner, Button } from "react-bootstrap";
 import axios from "axios";
-import {jwtDecode} from "jwt-decode";
+import { jwtDecode } from "jwt-decode";
 import { getToken } from "../utils/storage";
- // Importer la fonction getToken
+import  {API_URL}  from "../api/auth";
 
 const Profile = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = getToken(); // Récupérer le token via notre fonction utilitaire
-
+    const token = getToken();
     if (!token) {
       console.error("Aucun token trouvé !");
       setLoading(false);
@@ -21,7 +20,6 @@ const Profile = () => {
     try {
       const decodedToken = jwtDecode(token);
       const cin = decodedToken.cin;
-
       if (!cin) {
         console.error("CIN non trouvé dans le token !");
         setLoading(false);
@@ -29,7 +27,7 @@ const Profile = () => {
       }
 
       axios
-        .get(`http://localhost:8081/api/agents/${cin}`, {
+        .get(`${API_URL}/api/agents/cin/${cin}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         .then((response) => {
@@ -65,33 +63,39 @@ const Profile = () => {
   }
 
   return (
-    <Container className="d-flex justify-content-center mt-5">
-      <Card className="shadow-lg w-75">
-        <Card.Body>
-          <h2 className="text-center mb-4">User Profile</h2>
-
-          <Row className="text-center">
-            <Col>
-              <i className="bi bi-person-circle display-1"></i>
-              <h4 className="mt-2">{user.name}</h4>
-              <p className="text-muted">{user.role}</p>
-            </Col>
-          </Row>
-
+    <Container className="d-flex justify-content-center align-items-center min-vh-100">
+      <Card className="shadow-lg p-4 w-100" style={{ maxWidth: "600px" }}>
+        <Card.Body className="text-center">
+          <i className="bi bi-person-circle display-1 text-primary"></i>
+          <h2 className="mt-3">{user.name}</h2>
+          <p className="text-muted">{user.role}</p>
           <hr />
 
           <Row>
-            <Col md={6}>
-              <p><strong>Username:</strong> {user.username}</p>
-              <p><strong>CIN:</strong> {user.cin}</p>
-              <p><strong>Poste:</strong> {user.poste || "N/A"}</p>
+            <Col xs={12} className="mb-3">
+              <strong>Username:</strong> {user.username}
             </Col>
-            <Col md={6}>
-              <p><strong>Direction ID:</strong> {user.directionId || "N/A"}</p>
-              <p><strong>Département ID:</strong> {user.departementId || "N/A"}</p>
-              <p><strong>Service ID:</strong> {user.serviceId || "N/A"}</p>
+            <Col xs={12} className="mb-3">
+              <strong>CIN:</strong> {user.cin}
             </Col>
+            <Col xs={12} className="mb-3">
+              <strong>Poste:</strong> {user.poste || "N/A"}
+            </Col>
+            <Col xs={12} className="mb-3">
+              <strong>Direction:</strong> {user.directionName || "N/A"}
+            </Col>
+            {user.serviceName && (
+              <Col xs={12} className="mb-3">
+                <strong>Service:</strong> {user.serviceName}
+              </Col>
+            )}
+            {user.departementName && (
+              <Col xs={12} className="mb-3">
+                <strong>Département:</strong> {user.departementName}
+              </Col>
+            )}
           </Row>
+          <Button variant="primary" className="mt-3 w-100">Modifier les informations</Button>
         </Card.Body>
       </Card>
     </Container>
