@@ -42,8 +42,7 @@ const Sidebar = () => {
                     <Nav.Link as={Link} to="/articles" className="text-white">Articles</Nav.Link>
                   </>
                 )}
-                <Nav.Link as={Link} to="/cree-demande" className="text-white">Créer Demande</Nav.Link>
-                <Nav.Link as={Link} to="/mes-demandes" className="text-white">Mes Demandes</Nav.Link>
+                <Nav.Link as={Link} to="/demandes/create" className="text-white">Créer Demande</Nav.Link>
                 <Nav.Link as={Link} to="/settings" className="text-white">Settings</Nav.Link>
                 <Nav.Link as={Link} to="/profile" className="text-white">Profile</Nav.Link>
                 <Button variant="danger" className="mt-3 w-100" onClick={logout}>Logout</Button>
@@ -67,8 +66,7 @@ const Sidebar = () => {
               <Nav.Link as={Link} to="/articles" className="text-white">Articles</Nav.Link>
             </>
           )}
-          <Nav.Link as={Link} to="/cree-demande" className="text-white">Créer Demande</Nav.Link>
-          <Nav.Link as={Link} to="/mes-demandes" className="text-white">Mes Demandes</Nav.Link>
+          <Nav.Link as={Link} to="/demandes/create" className="text-white">Créer Demande</Nav.Link>
           <Nav.Link as={Link} to="/settings" className="text-white">Settings</Nav.Link>
           <Nav.Link as={Link} to="/profile" className="text-white">Profile</Nav.Link>
           <Button variant="danger" className="mt-3 w-100" onClick={logout}>Logout</Button>

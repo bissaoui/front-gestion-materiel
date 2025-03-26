@@ -14,7 +14,8 @@ import "bootstrap/dist/js/bootstrap.bundle.min";
 import ArticleList from "./pages/Article/ArticleList";
 import CreateArticle from "./pages/Article/CreateArticle";
 import CreateDemande from "./pages/Demandes/CreateDemande";
-import MesDemandes from "./pages/Demandes/MyDemands";
+import MesDemandes from "./pages/Demandes/MesDemandes";
+import DemandeDetails from "./pages/Demandes/DetailsDemande";
 
 const App = () => {
   return (
@@ -50,6 +51,8 @@ const MainApp = () => {
             <Route path="/articles" element={<ProtectedRoute><ArticleList /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
             <Route path="/articles/create" element={<ProtectedRoute><CreateArticle /></ProtectedRoute>} />
+            <Route path="/demande/details/:id" element={<ProtectedRoute><DemandeDetails /></ProtectedRoute>} />
+
             <Route path="/demandes/create" element={<ProtectedRoute><CreateDemande /></ProtectedRoute>} />
             <Route path="/demandes" element={<ProtectedRoute><MesDemandes /></ProtectedRoute>} />
 

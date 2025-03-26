@@ -1,162 +1,86 @@
-import React, { useState, useEffect } from "react";
-import { Form, Button, Container, Table, Alert } from "react-bootstrap";
-import axios from "axios";
-import { getToken } from "../../utils/storage";
-import { API_URL } from "../../api/auth";
-import { useNavigate } from "react-router-dom";
+const generatePDF = (demande) => {
+  const pdf = new jsPDF();
+  const img = new Image();
+  img.src = "/logo.png";
+  pdf.addImage(img, "PNG", 52, 5, 100, 34);
 
-const CreateDemande = () => {
-  const [date, setDate] = useState("");
-  const [agentId, setAgentId] = useState("");
-  const [agents, setAgents] = useState([]);
-  const [articles, setArticles] = useState([]);
-  const [lignes, setLignes] = useState([]);
-  const [selectedArticles, setSelectedArticles] = useState([]); // ✅ Articles choisis
-  const [errors, setErrors] = useState({});
-  const [successMessage, setSuccessMessage] = useState("");
-  const [countdown, setCountdown] = useState(4);
-  const navigate = useNavigate();
+  let yline = 83;
+  
 
-  useEffect(() => {
-    axios.get(`${API_URL}/api/agents`, { headers: { Authorization: `Bearer ${getToken()}` } })
-      .then((response) => setAgents(response.data))
-      .catch((error) => console.error("Erreur chargement agents:", error));
+  // Titre du document
+  pdf.setFontSize(17);
+  pdf.setFont("helvetica", "bold"); // Texte en gras
+  pdf.text("DEMANDE FOURNITURE INFORMATIQUE ", 45, 45);
+  
+  // Informations générales
+  pdf.setFontSize(11);
+  pdf.setFont("helvetica", "bold"); // Texte en gras
 
-    axios.get(`${API_URL}/api/articles`, { headers: { Authorization: `Bearer ${getToken()}` } })
-      .then((response) => setArticles(response.data))
-      .catch((error) => console.error("Erreur chargement articles:", error));
-  }, []);
+  pdf.text(`N° Demande: ${demande.id}`, 10, 60);
+  pdf.text(`${new Date(demande.date).toLocaleDateString()}`, 150, 60);
+  pdf.text("Demendeur", 10, 70);
+  pdf.line(120, 63, 183, 63);
 
-  // ✅ Fonction pour ajouter une ligne
-  const addLigne = () => {
-    setLignes([...lignes, { articleId: "", quantite: 1, observation: "" }]);
-  };
+  pdf.line(120, 73, 183, 73);
 
-  // ✅ Fonction pour modifier une ligne
-  const updateLigne = (index, field, value) => {
-    const updatedLignes = [...lignes];
+  pdf.text(" : ", 50, 70);
+  pdf.text(`${demande.agentName}`, 150, 70, { align: "center" });
 
-    if (field === "articleId") {
-      const oldArticleId = updatedLignes[index].articleId;
+  pdf.text("Direction" , 10, 80);
+  pdf.line(120, 83, 183, 83);
 
-      // ⚠️ Retirer l'ancien article de la liste des sélectionnés
-      if (oldArticleId) {
-        setSelectedArticles(selectedArticles.filter((id) => id !== oldArticleId));
-      }
+  pdf.text(" : ", 50, 80);
 
-      // ✅ Ajouter le nouvel article sélectionné
-      if (value) {
-        setSelectedArticles([...selectedArticles, value]);
-      }
-    }
+  pdf.text(`${demande.direction}`, 150, 80, { align: "center" });
+  if (demande.departement) {
+  pdf.text("Département", 10, 90);
+  pdf.line(120, 93, 183, 93);
+  yline = 93;
+  pdf.text(" : ", 50, 90);
 
-    updatedLignes[index][field] = value;
-    setLignes(updatedLignes);
-    setErrors({ ...errors, [index]: "" });
-  };
+  pdf.text(`${demande.departement}`, 150, 90, { align: "center" });
+  }
+  if (demande.service) {
+  pdf.text("Service" , 10, 100);
+  pdf.line(120, 103.5, 183, 103.5);
+  yline = 103.5;
+  pdf.text(" : ", 50, 100);
 
-  // ✅ Fonction pour supprimer une ligne
-  const removeLigne = (index) => {
-    const removedArticleId = lignes[index].articleId;
+  pdf.text(`${demande.service}`, 150, 100, { align: "center" });
+  }
 
-    if (removedArticleId) {
-      setSelectedArticles(selectedArticles.filter((id) => id !== removedArticleId));
-    }
+  pdf.setFont("helvetica", "normal"); // Texte en gras
+  pdf.line(120, 63, 120, yline);
+  pdf.line(183, 63, 183, yline);
 
-    setLignes(lignes.filter((_, i) => i !== index));
-    setErrors((prevErrors) => {
-      const updatedErrors = { ...prevErrors };
-      delete updatedErrors[index];
-      return updatedErrors;
-    });
-  };
 
-  // ✅ Récupérer les articles disponibles (non sélectionnés)
-  const getAvailableArticles = () => {
-    return articles.filter((article) => !selectedArticles.includes(article.id));
-  };
 
-  return (
-    <Container className="mt-4">
-      <h2>Créer une nouvelle demande</h2>
+  pdf.setFontSize(10);
+  let y = 120;
 
-      {successMessage && (
-        <Alert variant="success">
-          {successMessage} <strong>{countdown}</strong>...
-        </Alert>
-      )}
+  pdf.text("Code", 10, y);
+  pdf.text("Désignation", 50, y);
+  pdf.text("Unité", 110, y);
+  pdf.text("Quantité", 130, y);
+  pdf.text("Observation", 150, y);
+  
+  y += 5;
+  pdf.line(10, y, 200, y);
+  y += 5;
 
-      <Form>
-        <Form.Group className="mb-3">
-          <Form.Label>Date</Form.Label>
-          <Form.Control type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-        </Form.Group>
+  // Affichage des articles demandés
+  demande.lignes.forEach((ligne, index) => {
+    pdf.text(ligne.codeArticle, 10, y);
+    pdf.line(10, y+3, 200, y+3);
 
-        <Form.Group className="mb-3">
-          <Form.Label>Agent</Form.Label>
-          <Form.Select value={agentId} onChange={(e) => setAgentId(e.target.value)} required>
-            <option value="">Sélectionner un agent</option>
-            {agents.map((agent) => (
-              <option key={agent.id} value={agent.id}>{agent.nom}</option>
-            ))}
-          </Form.Select>
-        </Form.Group>
+    pdf.text(ligne.designation, 50, y);
+    pdf.text(ligne.unite, 110, y);
+    pdf.text(String(ligne.quantite), 130, y);
+    pdf.text(String(ligne.observation), 150, y);
 
-        <h4>Lignes de demande</h4>
-        <Table bordered>
-          <thead>
-            <tr>
-              <th>Article</th>
-              <th>Quantité</th>
-              <th>Observation</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lignes.map((ligne, index) => (
-              <tr key={index}>
-                <td>
-                  <Form.Select
-                    value={ligne.articleId}
-                    onChange={(e) => updateLigne(index, "articleId", e.target.value)}
-                    required
-                  >
-                    <option value="">Sélectionner un article</option>
-                    {getAvailableArticles().map((article) => (
-                      <option key={article.id} value={article.id}>{article.designation}</option>
-                    ))}
-                  </Form.Select>
-                </td>
-                <td>
-                  <Form.Control
-                    type="number"
-                    value={ligne.quantite}
-                    onChange={(e) => updateLigne(index, "quantite", e.target.value)}
-                    min="1"
-                    required
-                  />
-                  {errors[index] && <small className="text-danger">{errors[index]}</small>}
-                </td>
-                <td>
-                  <Form.Control
-                    type="text"
-                    value={ligne.observation}
-                    onChange={(e) => updateLigne(index, "observation", e.target.value)}
-                  />
-                </td>
-                <td>
-                  <Button variant="danger" onClick={() => removeLigne(index)}>Supprimer</Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+    y += 8;
+  });
 
-        <Button variant="secondary" onClick={addLigne}>Ajouter une ligne</Button>
-        <Button variant="primary" type="submit" className="mt-3">Créer la demande</Button>
-      </Form>
-    </Container>
-  );
+  // Enregistrement du fichier PDF
+  pdf.save(`Demande_${demande.id}.pdf`);
 };
-
-export default CreateDemande;
