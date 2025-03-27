@@ -22,7 +22,7 @@ const Sidebar = () => {
   return (
     <>
       {/* Mobile Navbar with Offcanvas Sidebar */}
-      <Navbar bg="dark" variant="dark" expand={false} className="d-lg-none">
+      <Navbar bg="dark" variant="dark" expand="lg" className="d-lg-none">
         <Container fluid>
           <Navbar.Brand className="text-white">Dashboard</Navbar.Brand>
           <Navbar.Toggle aria-controls="offcanvasSidebar" />
@@ -59,15 +59,15 @@ const Sidebar = () => {
           <Nav.Link as={Link} to="/" className="text-white">Home</Nav.Link>
           {role === "ADMIN" && (
             <>
-              <Nav.Link as={Link} to="/utilisateur" className="text-white">Utilisateurs</Nav.Link>
+              {/* <Nav.Link as={Link} to="/utilisateur" className="text-white">Utilisateurs</Nav.Link> */}
               <Nav.Link as={Link} to="/demandes" className="text-white">Demandes</Nav.Link>
-              <Nav.Link as={Link} to="/departements" className="text-white">Départements</Nav.Link>
-              <Nav.Link as={Link} to="/services" className="text-white">Services</Nav.Link>
+              {/* <Nav.Link as={Link} to="/departements" className="text-white">Départements</Nav.Link> */}
+              {/* <Nav.Link as={Link} to="/services" className="text-white">Services</Nav.Link> */}
               <Nav.Link as={Link} to="/articles" className="text-white">Articles</Nav.Link>
             </>
           )}
           <Nav.Link as={Link} to="/demandes/create" className="text-white">Créer Demande</Nav.Link>
-          <Nav.Link as={Link} to="/settings" className="text-white">Settings</Nav.Link>
+          {/* <Nav.Link as={Link} to="/settings" className="text-white">Settings</Nav.Link> */}
           <Nav.Link as={Link} to="/profile" className="text-white">Profile</Nav.Link>
           <Button variant="danger" className="mt-3 w-100" onClick={logout}>Logout</Button>
         </Nav>

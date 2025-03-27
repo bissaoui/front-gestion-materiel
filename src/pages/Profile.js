@@ -46,7 +46,7 @@ const Profile = () => {
 
   if (loading) {
     return (
-      <Container className="text-center mt-5">
+      <Container className="text-center">
         <Spinner animation="border" role="status">
           <span className="visually-hidden">Loading...</span>
         </Spinner>
@@ -63,7 +63,7 @@ const Profile = () => {
   }
 
   return (
-    <Container className="d-flex justify-content-center align-items-center min-vh-100">
+    <Container className="d-flex justify-content-center align-items-center mt-5">
       <Card className="shadow-lg p-4 w-100" style={{ maxWidth: "600px" }}>
         <Card.Body className="text-center">
           <i className="bi bi-person-circle display-1 text-primary"></i>
