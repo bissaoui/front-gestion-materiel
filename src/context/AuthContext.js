@@ -8,6 +8,7 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(!!getToken());
+  const [user, setUser] = useState(null);
 
   // ✅ Function to check if token is expired
   const isTokenValid = () => {
@@ -40,8 +41,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     checkTokenValidity(); // ✅ Check on mount
+
+    // Décode le token pour obtenir l'utilisateur
+    const token = getToken();
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        setUser(decoded);
+      } catch (e) {
+        setUser(null);
+      }
+    } else {
+      setUser(null);
+    }
 
     // ✅ Set up an interval to check every 30 seconds
     const interval = setInterval(checkTokenValidity, 30000);
@@ -53,6 +68,12 @@ export const AuthProvider = ({ children }) => {
     console.log("✅ User logged in!");
     setToken(token);
     setIsLoggedIn(true);
+    try {
+      const decoded = jwtDecode(token);
+      setUser(decoded);
+    } catch (e) {
+      setUser(null);
+    }
     navigate("/profile", { replace: true });
   };
 
@@ -60,7 +81,7 @@ export const AuthProvider = ({ children }) => {
     console.log("🚪 Logging out...");
     removeToken();
     setIsLoggedIn(false);
-
+    setUser(null);
     // ✅ Ensure navigation happens **after** state updates
     setTimeout(() => {
       navigate("/login", { replace: true });
@@ -68,7 +89,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, login, logout, user }}>
       {children}
     </AuthContext.Provider>
   );

@@ -25,17 +25,20 @@ const MainApp = () => {
 
   return (
     <div className="container-fluid">
-      <div className="row">
-        {/* Sidebar: Hidden on small screens */}
+      <div className="row flex-nowrap">
+        {/* Sidebar: Hidden on small screens, Offcanvas handled in Sidebar.js */}
         {!isLoginPage && isLoggedIn && (
-          <div className="col-lg-2 d-none d-lg-block text-white">
+          <div className="col-lg-2 d-none d-lg-block px-0">
             <Sidebar />
           </div>
         )}
-
         {/* Main Content */}
-        <div className={`${!isLoginPage && isLoggedIn ? "col-lg-9" : "col-12"} p-4`}>
-        <AppRoutes />
+        <div className={
+          !isLoginPage && isLoggedIn
+            ? "col-12 col-lg-10 p-3 p-md-4"
+            : "col-12 p-3 p-md-4"
+        }>
+          <AppRoutes />
         </div>
       </div>
     </div>

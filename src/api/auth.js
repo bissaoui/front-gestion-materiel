@@ -3,7 +3,7 @@ import { getToken } from "../utils/storage";
 
 
 // Default API_URL (will be updated dynamically)
-export const API_URL = `http://172.16.2.47:8081`; 
+export const API_URL = `http://10.10.120.61:8081`;
 
 
 

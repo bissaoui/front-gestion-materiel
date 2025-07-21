@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { login as authLogin } from "../api/auth"; // Import login function
+import { login as authLogin } from "../api/auth";
+import { Container, Row, Col, Form, Button, Alert, Spinner } from "react-bootstrap";
 
 const Login = () => {
   const [credentials, setCredentials] = useState({ username: "", password: "" });
@@ -19,9 +20,8 @@ const Login = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError(""); // Clear previous errors
+    setError("");
     setLoading(true);
-  
     try {
       const token = await authLogin(credentials);
       if (token) {
@@ -29,42 +29,45 @@ const Login = () => {
         navigate("/profile", { replace: true });
       }
     } catch (error) {
-      console.error("Login error:", error);
-      setError(error.message); // ✅ Show correct error message
+      setError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="container mt-5">
-      <form onSubmit={handleLogin} className="p-4 border rounded shadow-sm">
-        <h2 className="mb-3">Login</h2>
-
-        {error && <div className="alert alert-danger">{error}</div>}
-
-        <input
-          type="text"
-          placeholder="Username"
-          className="form-control mb-2"
-          value={credentials.username}
-          onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          className="form-control mb-3"
-          value={credentials.password}
-          onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
-          required
-        />
-        
-        <button type="submit" className="btn btn-primary w-100" disabled={loading}>
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
-    </div>
+    <Container fluid className="d-flex align-items-center justify-content-center min-vh-100">
+      <Row className="w-100 justify-content-center">
+        <Col xs={12} sm={10} md={6} lg={4} xl={3}>
+          <Form onSubmit={handleLogin} className="p-4 border rounded shadow-sm bg-white">
+            <h2 className="mb-3 text-center">Login</h2>
+            {error && <Alert variant="danger">{error}</Alert>}
+            <Form.Group className="mb-3">
+              <Form.Control
+                type="text"
+                placeholder="Username"
+                value={credentials.username}
+                onChange={e => setCredentials({ ...credentials, username: e.target.value })}
+                required
+                autoFocus
+              />
+            </Form.Group>
+            <Form.Group className="mb-4">
+              <Form.Control
+                type="password"
+                placeholder="Password"
+                value={credentials.password}
+                onChange={e => setCredentials({ ...credentials, password: e.target.value })}
+                required
+              />
+            </Form.Group>
+            <Button type="submit" variant="primary" className="w-100" disabled={loading}>
+              {loading ? <Spinner animation="border" size="sm" /> : "Login"}
+            </Button>
+          </Form>
+        </Col>
+      </Row>
+    </Container>
   );
 };
 
