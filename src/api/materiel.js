@@ -56,6 +56,11 @@ export const addMateriel = (data) =>
     headers: { Authorization: `Bearer ${getToken()}` }
   });
 
+export const updateMateriel = (id, data) =>
+  axios.put(`${API_URL}/api/materiels/${id}`, data, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  });
+
 export const deleteMateriel = (id) =>
   axios.delete(`${API_URL}/api/materiels/${id}`, {
     headers: { Authorization: `Bearer ${getToken()}` }

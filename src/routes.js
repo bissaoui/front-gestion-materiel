@@ -17,27 +17,33 @@ import MaterielList from "./pages/Admin/MaterielList";
 import AffectationMateriel from "./pages/Admin/AffectationMateriel";
 import AjouterMateriel from "./pages/Admin/AjouterMateriel";
 import AffectationsList from "./pages/Admin/AffectationsList";
+import AdminDashboard from "./pages/Admin/AdminDashboard";
+import ModernDashboard from "./pages/Admin/ModernDashboard";
+import MuiLayout from "./pages/Admin/MuiLayout";
 
 const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Home />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path="/articles" element={<ArticleList />} />
-      <Route path="/articles/create" element={<CreateArticle />} />
-      <Route path="/demandes/create" element={<CreateDemande />} />
-      <Route path="/demandes" element={<MesDemandes />} />
-      <Route path="/demande/details/:id" element={<DemandeDetails />} />
+      <Route path="/profile" element={<MuiLayout children={<Profile />} />} />
+      <Route path="/articles" element={<MuiLayout children={<ArticleList />} />} />
+      <Route path="/articles/create" element={<MuiLayout children={<CreateArticle />} />} />
+      <Route path="/demandes/create" element={<MuiLayout children={<CreateDemande />} />} />
+      <Route path="/demandes" element={<MuiLayout children={<MesDemandes />} />} />
+      <Route path="/demande/details/:id" element={<MuiLayout children={<DemandeDetails />} />} />
       <Route path="*" element={<NotFound />} />
+      <Route path="/mui-layout" element={<MuiLayout />} />
       <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
-        <Route path="/types" element={<TypeList />} />
-        <Route path="/marques" element={<MarqueList />} />
-        <Route path="/modeles" element={<ModeleList />} />
-        <Route path="/materiels" element={<MaterielList />} />
-        <Route path="/affectations" element={<AffectationMateriel />} />
-        <Route path="/ajouter-materiel" element={<AjouterMateriel />} />
-        <Route path="/affectations-liste" element={<AffectationsList />} />
+        <Route path="/types" element={<MuiLayout children={<TypeList />} />} />
+        <Route path="/marques" element={<MuiLayout children={<MarqueList />} />} />
+        <Route path="/modeles" element={<MuiLayout children={<ModeleList />} />} />
+        <Route path="/materiels" element={<MuiLayout children={<MaterielList />} />} />
+        <Route path="/affectations" element={<MuiLayout children={<AffectationMateriel />} />} />
+        <Route path="/ajouter-materiel" element={<MuiLayout children={<AjouterMateriel />} />} />
+        <Route path="/affectations-liste" element={<MuiLayout children={<AffectationsList />} />} />
+        <Route path="/admin-dashboard" element={<MuiLayout children={<AdminDashboard />} />} />
+        <Route path="/modern-dashboard" element={<MuiLayout children={<ModernDashboard />} />} />
       </Route>
     </Routes>
   );

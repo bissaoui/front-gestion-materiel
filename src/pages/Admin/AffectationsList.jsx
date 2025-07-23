@@ -5,6 +5,9 @@ import { getToken } from '../../utils/storage';
 import { Container, Row, Col, Form, Button, Table, Alert, Spinner, Badge, Nav } from 'react-bootstrap';
 import PaginationControl from '../../components/PaginationControl';
 import { Link } from 'react-router-dom';
+import CardLayout from '../../components/CardLayout';
+import MaterielForm from '../../components/MaterielForm';
+import navTabs from '../../components/adminNavTabs';
 
 const AffectationsList = () => {
   const [materiels, setMateriels] = useState([]);
@@ -83,17 +86,11 @@ const AffectationsList = () => {
   }, [itemsPerPage]);
 
   return (
-    <Container className="mt-4">
-      <h2 className="mb-4">Affectations des Matériels</h2>
-      <Nav variant="tabs" className="mb-3">
-        <Nav.Item><Nav.Link as={Link} to="/types">Types</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/marques">Marques</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/modeles">Modèles</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/materiels">Matériels</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/ajouter-materiel">Ajouter Matériel</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/affectations">Affecter</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/affectations-liste" active>Affectations (liste)</Nav.Link></Nav.Item>
-      </Nav>
+    <CardLayout
+      title="Affectations des Matériels"
+      navTabs={navTabs}
+      currentPath={window.location.pathname}
+    >
       <Row className="mb-3 g-2">
         <Col md={2}>
           <Form.Control
@@ -133,7 +130,7 @@ const AffectationsList = () => {
           <Form.Select value={selectedAgent} onChange={e => setSelectedAgent(e.target.value)}>
             <option value="">Tous les agents</option>
             {agents.map(agent => (
-              <option key={agent.id} value={agent.id}>{agent.nom} {agent.prenom}</option>
+              <option key={agent.id} value={agent.id}>{agent.nom} {agent.username}</option>
             ))}
           </Form.Select>
         </Col>
@@ -175,7 +172,7 @@ const AffectationsList = () => {
                       <td>{type}</td>
                       <td>{marque}</td>
                       <td>{modele}</td>
-                      <td>{agent ? `${agent.nom} ${agent.prenom}` : <Badge bg="secondary">-</Badge>}</td>
+                      <td>{agent ? `${agent.nom} ${agent.username}` : <Badge bg="secondary">-</Badge>}</td>
                       <td>{m.dateAffectation ? new Date(m.dateAffectation).toLocaleDateString() : <Badge bg="secondary">-</Badge>}</td>
                       <td>
                         {m.agentId ? <Badge bg="success">Affecté</Badge> : <Badge bg="warning">Disponible</Badge>}
@@ -202,7 +199,7 @@ const AffectationsList = () => {
           />
         </div>
       )}
-    </Container>
+    </CardLayout>
   );
 };
 

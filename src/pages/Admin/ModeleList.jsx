@@ -1,8 +1,33 @@
 import React, { useEffect, useState } from 'react';
-import { getTypes, getMarques, getModeles, addModele, deleteModele, getModelesByMarqueAndType } from '../../api/materiel';
-import { Container, Row, Col, Form, Button, Table, Alert, Spinner, Nav } from 'react-bootstrap';
-import PaginationControl from '../../components/PaginationControl';
-import { Link } from 'react-router-dom';
+import { getTypes, getMarques, addModele, deleteModele, getModelesByMarqueAndType, getMateriels } from '../../api/materiel';
+import { Link, useLocation } from 'react-router-dom';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Typography from '@mui/material/Typography';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Box from '@mui/material/Box';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
+import Checkbox from '@mui/material/Checkbox';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import TablePagination from '@mui/material/TablePagination';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
+import MenuItem from '@mui/material/MenuItem';
+import CardLayout from '../../components/CardLayout';
+import MaterielForm from '../../components/MaterielForm';
+import navTabs from '../../components/adminNavTabs';
+import { modeleColumns } from '../../components/adminTableColumns';
+import Tooltip from '@mui/material/Tooltip';
 
 const ModeleList = () => {
   const [types, setTypes] = useState([]);
@@ -15,12 +40,13 @@ const ModeleList = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [selectedModeles, setSelectedModeles] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: "id", direction: "asc" });
+  const [materiels, setMateriels] = useState([]);
+  const location = useLocation();
 
-  // Afficher toutes les marques et tous les types dans les selects
   useEffect(() => {
     getTypes()
       .then(res => setTypes(res.data))
@@ -42,7 +68,6 @@ const ModeleList = () => {
     setModeles([]);
   }, [selectedType]);
 
-  // Adapter le useEffect pour charger les modèles selon le filtre
   useEffect(() => {
     if (selectedType && selectedMarque) {
       setLoading(true);
@@ -71,15 +96,9 @@ const ModeleList = () => {
     }
   }, [selectedMarque, selectedType]);
 
-  // Pagination logic
-  // const indexOfLastItem = currentPage * itemsPerPage;
-  // const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  // const currentItems = modeles.slice(indexOfFirstItem, indexOfLastItem);
-  // const totalPages = Math.ceil(modeles.length / itemsPerPage);
-
   useEffect(() => {
-    setCurrentPage(1); // reset page when itemsPerPage changes
-  }, [itemsPerPage]);
+    getMateriels().then(res => setMateriels(Array.isArray(res.data) ? res.data : []));
+  }, []);
 
   const handleAddModele = async (e) => {
     e.preventDefault();
@@ -126,29 +145,37 @@ const ModeleList = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedModeles.length === modeles.length) {
+    const selectable = currentItems
+      .filter(modele => !materiels.some(m => m.modeleId === modele.id))
+      .map(modele => modele.id);
+    if (selectedModeles.length === selectable.length) {
       setSelectedModeles([]);
     } else {
-      setSelectedModeles(modeles.map(m => m.id));
+      setSelectedModeles(selectable);
     }
   };
 
   const handleDeleteSelected = async () => {
     if (selectedModeles.length === 0) return;
     if (!window.confirm('Supprimer tous les modèles sélectionnés ?')) return;
-    setError('');
-    setSuccess('');
     setLoading(true);
     let hasError = false;
+    let usedCount = 0;
     for (const id of selectedModeles) {
+      if (materiels.some(m => m.modeleId === id)) {
+        usedCount++;
+        continue;
+      }
       try {
         await deleteModele(id);
       } catch (e) {
         hasError = true;
       }
     }
-    if (hasError) {
-      setError("Certains modèles n'ont pas pu être supprimés car ils sont utilisés.");
+    if (usedCount > 0) {
+      setError(`Certains modèles n'ont pas pu être supprimés car ils sont utilisés.`);
+    } else if (hasError) {
+      setError("Erreur lors de la suppression de certains modèles.");
     } else {
       setSuccess('Modèles supprimés avec succès');
     }
@@ -187,150 +214,172 @@ const ModeleList = () => {
     return 0;
   });
   // Pagination (à garder après le tri et le filtrage)
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const indexOfLastItem = (page + 1) * rowsPerPage;
+  const indexOfFirstItem = indexOfLastItem - rowsPerPage;
   const currentItems = sortedModeles.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(sortedModeles.length / itemsPerPage);
+
+  console.log('marques:', marques);
+  console.log('modeles:', modeles);
 
   return (
-    <Container className="mt-4">
-      <h2 className="mb-4">Gestion des Modèles</h2>
-      <Nav variant="tabs" className="mb-3">
-        <Nav.Item><Nav.Link as={Link} to="/types">Types</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/marques">Marques</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/modeles" active>Modèles</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/materiels">Matériels</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/ajouter-materiel">Ajouter Matériel</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/affectations">Affecter</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/affectations-liste">Affectations (liste)</Nav.Link></Nav.Item>
-      </Nav>
-      <Form className="mb-4 p-3 border rounded bg-white shadow-sm" onSubmit={handleAddModele}>
-        <Row className="mb-2 align-items-center">
-          <Col md={6} className="mb-2 mb-md-0">
-            <Form.Control
-              type="text"
-              placeholder="Rechercher un modèle..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </Col>
-          <Col md={6} className="text-md-end text-muted small">
-            {selectedType && types.find(t => t.id === selectedType) ? `Type : ${types.find(t => t.id === selectedType)?.nom}` : "Type : Tous"}
-            {" | "}
-            {selectedMarque && marques.find(m => m.id === selectedMarque) ? `Marque : ${marques.find(m => m.id === selectedMarque)?.nom}` : "Marque : Toutes"}
-          </Col>
-        </Row>
-        <Row className="align-items-center g-2">
-          <Col xs={12} md={4} className="mb-2 mb-md-0">
-            <Form.Select value={selectedType} onChange={e => setSelectedType(e.target.value)} required>
-              <option value="">Tous les types</option>
-              {types.map(type => (
-                <option key={type.id} value={type.id}>{type.nom}</option>
-              ))}
-            </Form.Select>
-          </Col>
-          <Col xs={12} md={4} className="mb-2 mb-md-0">
-            <Form.Select value={selectedMarque} onChange={e => setSelectedMarque(e.target.value)} required>
-              <option value="">Toutes les marques</option>
-              {marques.map(marque => (
-                <option key={marque.id} value={marque.id}>{marque.nom}</option>
-              ))}
-            </Form.Select>
-          </Col>
-          <Col xs={12} md={3} className="mb-2 mb-md-0">
-            <Form.Control
-              type="text"
-              value={newModele}
-              onChange={e => setNewModele(e.target.value)}
-              placeholder="Nouveau modèle"
-              required
-              disabled={!selectedMarque}
-            />
-          </Col>
-          <Col xs={12} md={1}>
-            <Button type="submit" variant="primary" className="w-100" disabled={!selectedMarque}>Ajouter</Button>
-          </Col>
-        </Row>
-      </Form>
-      {success && <Alert variant="success">{success}</Alert>}
-      {error && <Alert variant="danger">{error}</Alert>}
+    <CardLayout
+      title="Gestion des Modèles"
+      navTabs={navTabs}
+      currentPath={location.pathname}
+    >
+    
+            <Box component="form" onSubmit={handleAddModele} sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+        <TextField
+          select
+          label="Type"
+          value={selectedType}
+          onChange={e => setSelectedType(e.target.value)}
+          size="small"
+          sx={{ minWidth: 180 }}
+          required
+        >
+          <MenuItem value="">Tous les types</MenuItem>
+          {types.map(type => (
+            <MenuItem key={type.id} value={String(type.id)}>{type.nom}</MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          label="Marque"
+          value={selectedMarque}
+          onChange={e => setSelectedMarque(e.target.value)}
+          size="small"
+          sx={{ minWidth: 180 }}
+          required
+          disabled={!selectedType}
+        >
+          <MenuItem value="">Toutes les marques</MenuItem>
+          {marques.map(marque => (
+            <MenuItem key={marque.id} value={String(marque.id)}>{marque.nom}</MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          label="Nom du modèle"
+          value={newModele}
+          onChange={e => setNewModele(e.target.value)}
+          size="small"
+          sx={{ minWidth: 200 }}
+          required
+          disabled={!selectedMarque}
+        />
+        <Button
+          type="submit"
+          variant="contained"
+          color="primary"
+          disabled={!selectedType || !selectedMarque || !newModele.trim()}
+          sx={{ minWidth: 180, height: 40 }}
+        >
+          Ajouter un modèle
+        </Button>
+        <Button
+          variant="outlined"
+          color="error"
+          startIcon={<DeleteIcon />}
+          disabled={selectedModeles.length === 0}
+          onClick={handleDeleteSelected}
+          sx={{ minWidth: 180, height: 40 }}
+        >
+          Supprimer la sélection
+        </Button>
+      </Box>
+      <TextField
+        label="Rechercher un modèle..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        size="small"
+        sx={{ mb: 2, minWidth: 200 }}
+      />
+      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
       {loading ? (
-        <div className="text-center my-4"><Spinner animation="border" /></div>
+        <Box display="flex" justifyContent="center" my={4}><CircularProgress /></Box>
       ) : (
-        <>
-          <div className="mb-2">
-            <Button variant="danger" size="sm" disabled={selectedModeles.length === 0} onClick={handleDeleteSelected}>
-              Supprimer la sélection
-            </Button>
-          </div>
-          <div className="table-responsive">
-            <Table bordered hover className="bg-white shadow-sm">
-              <thead className="table-light">
-                <tr>
-                  <th>
-                    <Form.Check
-                      type="checkbox"
-                      checked={selectedModeles.length === modeles.length && modeles.length > 0}
-                      onChange={handleSelectAll}
-                    />
-                  </th>
-                  <th onClick={() => setSortConfig({ key: "id", direction: sortConfig.key === "id" && sortConfig.direction === "asc" ? "desc" : "asc" })} style={{cursor:'pointer'}}>
-                    ID {sortConfig.key === "id" ? (sortConfig.direction === "asc" ? "▲" : "▼") : null}
-                  </th>
-                  <th onClick={() => setSortConfig({ key: "type", direction: sortConfig.key === "type" && sortConfig.direction === "asc" ? "desc" : "asc" })} style={{cursor:'pointer'}}>
-                    Type {sortConfig.key === "type" ? (sortConfig.direction === "asc" ? "▲" : "▼") : null}
-                  </th>
-                  <th onClick={() => setSortConfig({ key: "marque", direction: sortConfig.key === "marque" && sortConfig.direction === "asc" ? "desc" : "asc" })} style={{cursor:'pointer'}}>
-                    Marque {sortConfig.key === "marque" ? (sortConfig.direction === "asc" ? "▲" : "▼") : null}
-                  </th>
-                  <th onClick={() => setSortConfig({ key: "nom", direction: sortConfig.key === "nom" && sortConfig.direction === "asc" ? "desc" : "asc" })} style={{cursor:'pointer'}}>
-                    Modèle {sortConfig.key === "nom" ? (sortConfig.direction === "asc" ? "▲" : "▼") : null}
-                  </th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentItems.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="text-center text-muted">Aucun modèle trouvé.</td>
-                  </tr>
-                ) : (
-                  currentItems.map(modele => (
-                    <tr key={modele.id}>
-                      <td>
-                        <Form.Check
-                          type="checkbox"
-                          checked={selectedModeles.includes(modele.id)}
-                          onChange={() => handleSelectModele(modele.id)}
-                        />
-                      </td>
-                      <td>{modele.id}</td>
-                      <td>{types.find(t => t.id === modele.typeMaterielId)?.nom || '-'}</td>
-                      <td>{marques.find(m => m.id === modele.marqueId)?.nom || '-'}</td>
-                      <td>{modele.nom}</td>
-                      <td>
-                        <Button variant="danger" size="sm" onClick={() => handleDeleteModele(modele.id)}>
-                          Supprimer
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </Table>
-            {/* Affichage du nombre de résultats */}
-            <div className="mb-2 text-muted small">{sortedModeles.length} modèle(s) trouvé(s)</div>
-            <PaginationControl
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-              itemsPerPage={itemsPerPage}
-              setItemsPerPage={setItemsPerPage}
-            />
-          </div>
-        </>
+        <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 1 }}>
+          <Table>
+            <TableHead sx={{ background: '#f4f6fa' }}>
+              <TableRow>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={selectedModeles.length === currentItems.filter(modele => !materiels.some(m => m.modeleId === modele.id)).length && currentItems.filter(modele => !materiels.some(m => m.modeleId === modele.id)).length > 0}
+                    indeterminate={selectedModeles.length > 0 && selectedModeles.length < currentItems.filter(modele => !materiels.some(m => m.modeleId === modele.id)).length}
+                    onChange={handleSelectAll}
+                    color="primary"
+                  />
+                </TableCell>
+                {modeleColumns.map(col => <TableCell key={col.id} align={col.id === 'action' ? 'right' : undefined}>{col.label}</TableCell>)}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {currentItems.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={modeleColumns.length + 2} align="center" sx={{ color: 'text.secondary' }}>
+                    Aucun modèle trouvé.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                currentItems.map(modele => (
+                  <TableRow key={modele.id} hover selected={selectedModeles.includes(modele.id)}>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={selectedModeles.includes(modele.id)}
+                        onChange={() => handleSelectModele(modele.id)}
+                        color="primary"
+                        disabled={materiels.some(m => m.modeleId === modele.id)}
+                      />
+                    </TableCell>
+                    {modeleColumns.map(col => (
+                      <TableCell key={col.id} align={col.id === 'action' ? 'right' : undefined}>
+                        {col.id === 'type'
+                          ? (types.find(t => String(t.id) === String(modele.typeMaterielId))?.nom || '-')
+                          : col.id === 'marque'
+                            ? (marques.find(m => String(m.id) === String(modele.marqueId))?.nom || '-')
+                            : col.id === 'action'
+                              ? (
+                                  <Tooltip title={materiels.some(m => m.modeleId === modele.id) ? "Impossible de supprimer : modèle utilisé" : ""}>
+                                    <span>
+                                      <Button
+                                        variant="outlined"
+                                        color="error"
+                                        size="small"
+                                        startIcon={<DeleteIcon />}
+                                        onClick={() => handleDeleteModele(modele.id)}
+                                        disabled={materiels.some(m => m.modeleId === modele.id)}
+                                      >
+                                        Supprimer
+                                      </Button>
+                                    </span>
+                                  </Tooltip>
+                                )
+                              : col.id === 'modele'
+                                ? modele.nom
+                                : modele[col.id]
+                        }
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+          <TablePagination
+            component="div"
+            count={sortedModeles.length}
+            page={page}
+            onPageChange={(e, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+            rowsPerPageOptions={[5, 10, 20, 50, 100]}
+            labelRowsPerPage="Lignes par page"
+          />
+        </TableContainer>
       )}
-    </Container>
+    </CardLayout>
   );
 };
 

@@ -3,7 +3,12 @@ import axios from 'axios';
 import { API_URL } from '../../api/auth';
 import { getToken } from '../../utils/storage';
 import { Container, Form, Button, Alert, Row, Col, Spinner, Nav } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { Typeahead } from 'react-bootstrap-typeahead';
+import 'react-bootstrap-typeahead/css/Typeahead.css';
+import CardLayout from '../../components/CardLayout';
+import MaterielForm from '../../components/MaterielForm';
+import navTabs from '../../components/adminNavTabs';
 
 const AffectationMateriel = () => {
   const [agents, setAgents] = useState([]);
@@ -19,6 +24,8 @@ const AffectationMateriel = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  const [agentQuery, setAgentQuery] = useState([]);
+  const location = useLocation();
 
   useEffect(() => {
     // Charger la liste des agents
@@ -105,17 +112,11 @@ const AffectationMateriel = () => {
   };
 
   return (
-    <Container className="mt-4">
-      <h2 className="mb-4">Affecter un Matériel à un Utilisateur</h2>
-      <Nav variant="tabs" className="mb-3">
-        <Nav.Item><Nav.Link as={Link} to="/types">Types</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/marques">Marques</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/modeles">Modèles</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/materiels">Matériels</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/ajouter-materiel">Ajouter Matériel</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/affectations" active>Affecter</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/affectations-liste">Affectations (liste)</Nav.Link></Nav.Item>
-      </Nav>
+    <CardLayout
+      title="Affecter un Matériel à un Utilisateur"
+      navTabs={navTabs}
+      currentPath={location.pathname}
+    >
       <Form onSubmit={handleSubmit} className="p-4 border rounded shadow-sm bg-white">
         {success && <Alert variant="success">{success}</Alert>}
         {error && <Alert variant="danger">{error}</Alert>}
@@ -123,12 +124,20 @@ const AffectationMateriel = () => {
           <Col md={6}>
             <Form.Group>
               <Form.Label>Agent</Form.Label>
-              <Form.Select value={selectedAgent} onChange={e => setSelectedAgent(e.target.value)} required>
-                <option value="">Sélectionner un agent</option>
-                {agents.map(agent => (
-                  <option key={agent.id} value={agent.id}>{agent.nom} {agent.prenom}</option>
-                ))}
-              </Form.Select>
+              <Typeahead
+                id="agent-typeahead"
+                labelKey={option => `${option.nom} ${option.username}`}
+                options={agents}
+                placeholder="Rechercher un agent..."
+                onChange={selected => setSelectedAgent(selected[0]?.id || '')}
+                selected={agents.filter(a => a.id === selectedAgent)}
+                minLength={1}
+                highlightOnlyResult
+                clearButton
+                renderMenuItemChildren={(option) => (
+                  <span>{option.nom} {option.username}</span>
+                )}
+              />
             </Form.Group>
           </Col>
           <Col md={6}>
@@ -188,7 +197,7 @@ const AffectationMateriel = () => {
           {loading ? <Spinner animation="border" size="sm" /> : "Affecter"}
         </Button>
       </Form>
-    </Container>
+    </CardLayout>
   );
 };
 

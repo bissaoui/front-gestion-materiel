@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { jwtDecode } from "jwt-decode";
 import { getToken } from "../utils/storage";
@@ -8,6 +8,7 @@ import { Navbar, Nav, Button, Offcanvas, Container } from "react-bootstrap";
 const Sidebar = () => {
   const { isLoggedIn, logout } = useAuth();
   const token = getToken();
+  const location = useLocation();
 
   let role = "user";
   if (isLoggedIn && token) {
@@ -18,6 +19,9 @@ const Sidebar = () => {
       console.error("Invalid token", error);
     }
   }
+
+  // Masquer la sidebar si on est sur /mui-layout
+  if (location.pathname === '/mui-layout') return null;
 
   return (
     <>
@@ -37,6 +41,7 @@ const Sidebar = () => {
                   <>
                     {role === "ADMIN" && (
                       <>
+                        <Nav.Link as={Link} to="/admin-dashboard" className="text-white">Dashboard Statistiques</Nav.Link>
                         <Nav.Link as={Link} to="/types" className="text-white">Types</Nav.Link>
                         <Nav.Link as={Link} to="/marques" className="text-white">Marques</Nav.Link>
                         <Nav.Link as={Link} to="/modeles" className="text-white">Modèles</Nav.Link>
@@ -75,6 +80,9 @@ const Sidebar = () => {
             <Nav.Link as={Link} to="/" className="text-white">Home</Nav.Link>
             {role === "ADMIN" && (
               <>
+                <Nav.Link as={Link} to="/admin-dashboard" className="text-white">Dashboard Statistiques</Nav.Link>
+                <Nav.Link as={Link} to="/modern-dashboard" className="text-white">Dashboard Modern</Nav.Link>
+                <Nav.Link as={Link} to="/mui-layout" className="text-white">Dashboard MUI</Nav.Link>
                 <Nav.Link as={Link} to="/types" className="text-white">Types</Nav.Link>
                 <Nav.Link as={Link} to="/marques" className="text-white">Marques</Nav.Link>
                 <Nav.Link as={Link} to="/modeles" className="text-white">Modèles</Nav.Link>

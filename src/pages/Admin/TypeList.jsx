@@ -1,8 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { getTypes, addType, deleteType } from '../../api/materiel';
-import { Container, Row, Col, Form, Button, Table, Alert, Spinner, Nav } from 'react-bootstrap';
-import PaginationControl from '../../components/PaginationControl';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Typography from '@mui/material/Typography';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Box from '@mui/material/Box';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
+import Checkbox from '@mui/material/Checkbox';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import TablePagination from '@mui/material/TablePagination';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CardLayout from '../../components/CardLayout';
+import MaterielForm from '../../components/MaterielForm';
+import navTabs from '../../components/adminNavTabs';
+import { typeColumns } from '../../components/adminTableColumns';
 
 const TypeList = () => {
   const [types, setTypes] = useState([]);
@@ -11,8 +34,9 @@ const TypeList = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [selectedTypes, setSelectedTypes] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const location = useLocation();
 
   const fetchTypes = async () => {
     setLoading(true);
@@ -26,33 +50,31 @@ const TypeList = () => {
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchTypes();
-  }, []);
-
-  // Pagination logic
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = types.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(types.length / itemsPerPage);
-
-  useEffect(() => {
-    setCurrentPage(1); // reset page when itemsPerPage changes
-  }, [itemsPerPage]);
+  useEffect(() => { fetchTypes(); }, []);
 
   const handleAddType = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     if (!newType.trim()) return;
+    setLoading(true);
     try {
       await addType(newType);
       setNewType('');
       setSuccess('Type ajouté avec succès');
       fetchTypes();
     } catch (e) {
-      setError(e.response?.data?.message || "Erreur lors de l'ajout du type");
+      const backendMsg = typeof e.response?.data === 'string'
+        ? e.response.data
+        : e.response?.data?.message || e.response?.data?.error || '';
+      if (backendMsg.toLowerCase().includes('existe déjà')) {
+        setError('Ce type existe déjà. Veuillez choisir un autre nom.');
+      } else {
+        setError(backendMsg || "Erreur lors de l'ajout du type");
+      }
+      fetchTypes();
     }
+    setLoading(false);
   };
 
   const handleDeleteType = async (id) => {
@@ -112,100 +134,102 @@ const TypeList = () => {
     setLoading(false);
   };
 
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   return (
-    <Container className="mt-4">
-      <h2 className="mb-4">Gestion des Types de Matériel</h2>
-      <Nav variant="tabs" className="mb-3">
-        <Nav.Item><Nav.Link as={Link} to="/types" active>Types</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/marques">Marques</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/modeles">Modèles</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/materiels">Matériels</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/ajouter-materiel">Ajouter Matériel</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/affectations">Affecter</Nav.Link></Nav.Item>
-        <Nav.Item><Nav.Link as={Link} to="/affectations-liste">Affectations (liste)</Nav.Link></Nav.Item>
-      </Nav>
-      <Form onSubmit={handleAddType} className="mb-4 p-3 border rounded bg-white shadow-sm">
-        <Row className="align-items-center g-2">
-          <Col xs={12} md={8} className="mb-2 mb-md-0">
-            <Form.Control
-              type="text"
-              value={newType}
-              onChange={e => setNewType(e.target.value)}
-              placeholder="Nouveau type"
-              required
-            />
-          </Col>
-          <Col xs={12} md={4}>
-            <Button type="submit" variant="primary" className="w-100">Ajouter</Button>
-          </Col>
-        </Row>
-      </Form>
-      {success && <Alert variant="success">{success}</Alert>}
+    <CardLayout
+      title="Gestion des Types de Matériel"
+      navTabs={navTabs}
+      currentPath={location.pathname}
+    >
+      <Box component="form" onSubmit={handleAddType} sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+        <TextField
+          label="Nouveau type"
+          value={newType}
+          onChange={e => setNewType(e.target.value)}
+          size="small"
+          sx={{ flex: 1, minWidth: 200 }}
+          required
+        />
+        <Button type="submit" variant="contained" color="primary" startIcon={<AddIcon />} sx={{ minWidth: 140, height: 40 }}>
+          Ajouter
+        </Button>
+        <Button
+          variant="outlined"
+          color="error"
+          startIcon={<DeleteIcon />}
+          disabled={selectedTypes.length === 0}
+          onClick={handleDeleteSelected}
+          sx={{ minWidth: 180, height: 40 }}
+        >
+          Supprimer la sélection
+        </Button>
+      </Box>
+      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {loading ? (
-        <div className="text-center my-4"><Spinner animation="border" /></div>
-      ) : error ? (
-        <Alert variant="danger" className="text-center">{error}</Alert>
+        <Box display="flex" justifyContent="center" my={4}><CircularProgress /></Box>
       ) : (
-        <>
-          <div className="mb-2">
-            <Button variant="danger" size="sm" disabled={selectedTypes.length === 0} onClick={handleDeleteSelected}>
-              Supprimer la sélection
-            </Button>
-          </div>
-          <div className="table-responsive">
-            <Table bordered hover className="bg-white shadow-sm">
-              <thead className="table-light">
-                <tr>
-                  <th>
-                    <Form.Check
-                      type="checkbox"
-                      checked={selectedTypes.length === types.length && types.length > 0}
-                      onChange={handleSelectAll}
-                    />
-                  </th>
-                  <th>ID</th>
-                  <th>Nom</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentItems.length === 0 ? (
-                  <tr>
-                    <td colSpan="4" className="text-center text-muted">Aucun type trouvé.</td>
-                  </tr>
-                ) : (
-                  currentItems.map(type => (
-                    <tr key={type.id}>
-                      <td>
-                        <Form.Check
-                          type="checkbox"
-                          checked={selectedTypes.includes(type.id)}
-                          onChange={() => handleSelectType(type.id)}
-                        />
-                      </td>
-                      <td>{type.id}</td>
-                      <td>{type.nom}</td>
-                      <td>
-                        <Button variant="danger" size="sm" onClick={() => handleDeleteType(type.id)}>
-                          Supprimer
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </Table>
-            <PaginationControl
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-              itemsPerPage={itemsPerPage}
-              setItemsPerPage={setItemsPerPage}
-            />
-          </div>
-        </>
+        <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 1 }}>
+          <Table>
+            <TableHead sx={{ background: '#f4f6fa' }}>
+              {typeColumns.map(col => <TableCell key={col.id}>{col.label}</TableCell>)}
+            </TableHead>
+            <TableBody>
+              {types.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} align="center" sx={{ color: 'text.secondary' }}>
+                    Aucun type trouvé.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                types.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(type => (
+                  <TableRow key={type.id} hover selected={selectedTypes.includes(type.id)}>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={selectedTypes.includes(type.id)}
+                        onChange={() => handleSelectType(type.id)}
+                        color="primary"
+                      />
+                    </TableCell>
+                    <TableCell>{type.id}</TableCell>
+                    <TableCell>{type.nom}</TableCell>
+                    <TableCell align="right">
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        size="small"
+                        startIcon={<DeleteIcon />}
+                        onClick={() => handleDeleteType(type.id)}
+                      >
+                        Supprimer
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+          <TablePagination
+            component="div"
+            count={types.length}
+            page={page}
+            onPageChange={handleChangePage}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            rowsPerPageOptions={[5, 10, 20, 50, 100]}
+            labelRowsPerPage="Lignes par page"
+          />
+        </TableContainer>
       )}
-    </Container>
+    </CardLayout>
   );
 };
 
