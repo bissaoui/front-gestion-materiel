@@ -22,7 +22,6 @@ import TablePagination from '@mui/material/TablePagination';
 import DeleteIcon from '@mui/icons-material/Delete';
 import MenuItem from '@mui/material/MenuItem';
 import CardLayout from '../../components/CardLayout';
-import MaterielForm from '../../components/MaterielForm';
 import navTabs from '../../components/adminNavTabs';
 import { materielColumns } from '../../components/adminTableColumns';
 import Tooltip from '@mui/material/Tooltip';

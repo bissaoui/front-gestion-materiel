@@ -2,11 +2,30 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_URL } from '../../api/auth';
 import { getToken } from '../../utils/storage';
-import { Container, Row, Col, Form, Button, Table, Alert, Spinner, Badge, Nav } from 'react-bootstrap';
+import {
+  Table as MuiTable,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Chip,
+  Button as MuiButton,
+  CircularProgress,
+  Alert,
+  Box,
+  TablePagination,
+  Grid,
+  TextField,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl
+} from '@mui/material';
 import PaginationControl from '../../components/PaginationControl';
 import { Link } from 'react-router-dom';
 import CardLayout from '../../components/CardLayout';
-import MaterielForm from '../../components/MaterielForm';
 import navTabs from '../../components/adminNavTabs';
 
 const AffectationsList = () => {
@@ -85,80 +104,148 @@ const AffectationsList = () => {
     setCurrentPage(1); // reset page when itemsPerPage changes
   }, [itemsPerPage]);
 
+  // Calcul des marques filtrées dynamiquement selon le type sélectionné
+  const filteredMarques = React.useMemo(() => {
+    if (!selectedType) return marques;
+    // Trouver les marques qui ont au moins un matériel du type sélectionné
+    const marqueIds = new Set(
+      materiels.filter(m => m.typeMaterielId === Number(selectedType)).map(m => m.marqueId)
+    );
+    return marques.filter(ma => marqueIds.has(ma.id));
+  }, [marques, materiels, selectedType]);
+
+  // Calcul des modèles filtrés dynamiquement selon le type et la marque sélectionnés
+  const filteredModeles = React.useMemo(() => {
+    return modeles.filter(mo => {
+      const matchType = selectedType ? mo.typeMaterielId === Number(selectedType) : true;
+      const matchMarque = selectedMarque ? mo.marqueId === Number(selectedMarque) : true;
+      return matchType && matchMarque;
+    });
+  }, [modeles, selectedType, selectedMarque]);
+
+  // Ajout d'une constante pour le menu déroulant large
+  const selectMenuProps = {
+    PaperProps: {
+      style: {
+        maxHeight: 300,
+        minWidth: 220,
+      },
+    },
+  };
+
   return (
     <CardLayout
       title="Affectations des Matériels"
       navTabs={navTabs}
       currentPath={window.location.pathname}
     >
-      <Row className="mb-3 g-2">
-        <Col md={2}>
-          <Form.Control
-            type="text"
-            placeholder="Recherche numéro de série"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </Col>
-        <Col md={2}>
-          <Form.Select value={selectedType} onChange={e => setSelectedType(e.target.value)}>
-            <option value="">Tous les types</option>
-            {types.map(type => (
-              <option key={type.id} value={type.id}>{type.nom}</option>
-            ))}
-          </Form.Select>
-        </Col>
-        <Col md={2}>
-          <Form.Select value={selectedMarque} onChange={e => setSelectedMarque(e.target.value)}>
-            <option value="">Toutes les marques</option>
-            {marques
-              .filter(ma => !selectedType || (ma.types && ma.types.some(t => t.id === Number(selectedType))) || ma.typeMaterielId === Number(selectedType))
-              .map(marque => (
-                <option key={marque.id} value={marque.id}>{marque.nom}</option>
-              ))}
-          </Form.Select>
-        </Col>
-        <Col md={2}>
-          <Form.Select value={selectedModele} onChange={e => setSelectedModele(e.target.value)}>
-            <option value="">Tous les modèles</option>
-            {modeles.map(modele => (
-              <option key={modele.id} value={modele.id}>{modele.nom}</option>
-            ))}
-          </Form.Select>
-        </Col>
-        <Col md={2}>
-          <Form.Select value={selectedAgent} onChange={e => setSelectedAgent(e.target.value)}>
-            <option value="">Tous les agents</option>
-            {agents.map(agent => (
-              <option key={agent.id} value={agent.id}>{agent.nom} {agent.username}</option>
-            ))}
-          </Form.Select>
-        </Col>
-      </Row>
+      <Box mb={2}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={4} md={2}>
+            <TextField
+              label="Recherche"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              size="small"
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={12} sm={4} md={2}>
+            <FormControl fullWidth size="small" sx={{ minWidth: 180, maxWidth: 260 }}>
+              <InputLabel id="type-label">Type</InputLabel>
+              <Select
+                labelId="type-label"
+                value={selectedType}
+                label="Type"
+                onChange={e => setSelectedType(e.target.value)}
+                MenuProps={selectMenuProps}
+              >
+                <MenuItem value="">Tous les types</MenuItem>
+                {types.map(type => (
+                  <MenuItem key={type.id} value={type.id} sx={{ whiteSpace: 'normal' }}>{type.nom}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={4} md={2}>
+            <FormControl fullWidth size="small" sx={{ minWidth: 180, maxWidth: 260 }}>
+              <InputLabel id="marque-label">Marque</InputLabel>
+              <Select
+                labelId="marque-label"
+                value={selectedMarque}
+                label="Marque"
+                onChange={e => setSelectedMarque(e.target.value)}
+                MenuProps={selectMenuProps}
+              >
+                <MenuItem value="">Toutes les marques</MenuItem>
+                {filteredMarques.map(marque => (
+                  <MenuItem key={marque.id} value={marque.id} sx={{ whiteSpace: 'normal' }}>{marque.nom}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={4} md={2}>
+            <FormControl fullWidth size="small" sx={{ minWidth: 180, maxWidth: 260 }}>
+              <InputLabel id="modele-label">Modèle</InputLabel>
+              <Select
+                labelId="modele-label"
+                value={selectedModele}
+                label="Modèle"
+                onChange={e => setSelectedModele(e.target.value)}
+                MenuProps={selectMenuProps}
+              >
+                <MenuItem value="">Tous les modèles</MenuItem>
+                {filteredModeles.map(modele => (
+                  <MenuItem key={modele.id} value={modele.id} sx={{ whiteSpace: 'normal' }}>{modele.nom}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={4} md={2}>
+            <FormControl fullWidth size="small" sx={{ minWidth: 180, maxWidth: 260 }}>
+              <InputLabel id="agent-label">Agent</InputLabel>
+              <Select
+                labelId="agent-label"
+                value={selectedAgent}
+                label="Agent"
+                onChange={e => setSelectedAgent(e.target.value)}
+                MenuProps={selectMenuProps}
+              >
+                <MenuItem value="">Tous les agents</MenuItem>
+                {agents.map(agent => (
+                  <MenuItem key={agent.id} value={agent.id} sx={{ whiteSpace: 'normal' }}>{agent.nom} {agent.username}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
+      </Box>
       {success && <Alert variant="success">{success}</Alert>}
       {error && <Alert variant="danger">{error}</Alert>}
       {loading ? (
-        <div className="text-center my-4"><Spinner animation="border" /></div>
+        <Box display="flex" justifyContent="center" my={4}><CircularProgress /></Box>
       ) : (
-        <div className="table-responsive">
-          <Table bordered hover className="bg-white shadow-sm">
-            <thead className="table-light">
-              <tr>
-                <th>Numéro de série</th>
-                <th>Type</th>
-                <th>Marque</th>
-                <th>Modèle</th>
-                <th>Agent</th>
-                <th>Date d'affectation</th>
-                <th>Statut</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+        <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 1 }}>
+          <MuiTable sx={{ minWidth: 900 }}>
+            <TableHead  sx={{ background: '#f4f6fa' }}>
+              <TableRow >
+                <TableCell>Numéro de série</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Marque</TableCell>
+                <TableCell>Modèle</TableCell>
+                <TableCell>Agent</TableCell>
+                <TableCell>Date d'affectation</TableCell>
+                <TableCell>Statut</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {currentItems.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="text-center text-muted">Aucun matériel trouvé.</td>
-                </tr>
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ color: 'text.secondary' }}>
+                    Aucun matériel trouvé.
+                  </TableCell>
+                </TableRow>
               ) : (
                 currentItems.map(m => {
                   const type = types.find(t => t.id === m.typeMaterielId)?.nom || '-';
@@ -167,37 +254,44 @@ const AffectationsList = () => {
                   const agent = agents.find(a => a.id === m.agentId);
                   const statut = m.agentId ? 'Affecté' : 'Disponible';
                   return (
-                    <tr key={m.id}>
-                      <td>{m.numeroSerie}</td>
-                      <td>{type}</td>
-                      <td>{marque}</td>
-                      <td>{modele}</td>
-                      <td>{agent ? `${agent.nom} ${agent.username}` : <Badge bg="secondary">-</Badge>}</td>
-                      <td>{m.dateAffectation ? new Date(m.dateAffectation).toLocaleDateString() : <Badge bg="secondary">-</Badge>}</td>
-                      <td>
-                        {m.agentId ? <Badge bg="success">Affecté</Badge> : <Badge bg="warning">Disponible</Badge>}
-                      </td>
-                      <td>
-                        {m.agentId && (
-                          <Button variant="outline-danger" size="sm" onClick={() => handleDesaffecter(m.id)}>
-                            Désaffecter
-                          </Button>
+                    <TableRow key={m.id} hover>
+                      <TableCell>{m.numeroSerie}</TableCell>
+                      <TableCell>{type}</TableCell>
+                      <TableCell>{marque}</TableCell>
+                      <TableCell>{modele}</TableCell>
+                      <TableCell>{agent ? `${agent.nom} ${agent.username}` : <Chip label="-" size="small" color="default" />}</TableCell>
+                      <TableCell>{m.dateAffectation ? new Date(m.dateAffectation).toLocaleDateString() : <Chip label="-" size="small" color="default" />}</TableCell>
+                      <TableCell>
+                        {m.agentId ? (
+                          <Chip label="Affecté" size="small" sx={{ backgroundColor: '#388e3c', color: 'white' }} />
+                        ) : (
+                          <Chip label="Disponible" size="small" sx={{ backgroundColor: '#fbc02d', color: 'black' }} />
                         )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                      <TableCell>
+                        {m.agentId && (
+                          <MuiButton variant="outlined" color="error" size="small" onClick={() => handleDesaffecter(m.id)}>
+                            Désaffecter
+                          </MuiButton>
+                        )}
+                      </TableCell>
+                    </TableRow>
                   );
                 })
               )}
-            </tbody>
-          </Table>
-          <PaginationControl
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            itemsPerPage={itemsPerPage}
-            setItemsPerPage={setItemsPerPage}
+            </TableBody>
+          </MuiTable>
+          <TablePagination
+            component="div"
+            count={materiels.length}
+            page={currentPage - 1}
+            onPageChange={(e, newPage) => setCurrentPage(newPage + 1)}
+            rowsPerPage={itemsPerPage}
+            onRowsPerPageChange={e => { setItemsPerPage(parseInt(e.target.value, 10)); setCurrentPage(1); }}
+            rowsPerPageOptions={[5, 10, 20, 50, 100]}
+            labelRowsPerPage="Lignes par page"
           />
-        </div>
+        </TableContainer>
       )}
     </CardLayout>
   );

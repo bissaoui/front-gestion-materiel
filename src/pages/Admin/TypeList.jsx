@@ -23,7 +23,6 @@ import TablePagination from '@mui/material/TablePagination';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CardLayout from '../../components/CardLayout';
-import MaterielForm from '../../components/MaterielForm';
 import navTabs from '../../components/adminNavTabs';
 import { typeColumns } from '../../components/adminTableColumns';
 

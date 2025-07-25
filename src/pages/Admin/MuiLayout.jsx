@@ -30,7 +30,7 @@ import logoAndzoa from '../../assets/logo-andzoa.png';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Tooltip from '@mui/material/Tooltip';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import CategoryIcon from '@mui/icons-material/Category';
 import BrandingWatermarkIcon from '@mui/icons-material/BrandingWatermark';
@@ -38,6 +38,8 @@ import DevicesOtherIcon from '@mui/icons-material/DevicesOther';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
+import { useAuth } from '../../context/AuthContext';
+import ListSubheader from '@mui/material/ListSubheader';
 
 const drawerWidth = 220;
 
@@ -79,20 +81,34 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
   },
 }));
 
-const navItems = [
-  { text: 'Accueil', icon: <HomeIcon />, to: '/' },
-  { text: 'Dashboard', icon: <DashboardIcon />, to: '/admin-dashboard' },
-  { text: 'Dashboard Modern', icon: <DashboardCustomizeIcon />, to: '/modern-dashboard' },
-  { text: 'Types', icon: <CategoryIcon />, to: '/types' },
-  { text: 'Marques', icon: <BrandingWatermarkIcon />, to: '/marques' },
-  { text: 'Modèles', icon: <DevicesOtherIcon />, to: '/modeles' },
-  { text: 'Matériels', icon: <DevicesIcon />, to: '/materiels' },
-  { text: 'Ajouter Matériel', icon: <AddCircleOutlineIcon />, to: '/ajouter-materiel' },
-  { text: 'Demandes', icon: <AssignmentIcon />, to: '/demandes' },
-  { text: 'Articles', icon: <ListAltIcon />, to: '/articles' },
-  { text: 'Affectations', icon: <AssignmentIndIcon />, to: '/affectations' },
-  { text: 'Affectations (liste)', icon: <AssignmentIndIcon />, to: '/affectations-liste' },
-  { text: 'Profile', icon: <PeopleIcon />, to: '/profile' },
+const navGroups = [
+  {
+    subheader: null,
+    items: [
+      { text: 'Accueil', icon: <HomeIcon />, to: '/' },
+      { text: 'Dashboard', icon: <DashboardIcon />, to: '/admin-dashboard' },
+      { text: 'Dashboard Modern', icon: <DashboardCustomizeIcon />, to: '/modern-dashboard' },
+    ]
+  },
+  {
+    subheader: 'Gestion Matériel',
+    items: [
+      { text: 'Types', icon: <CategoryIcon />, to: '/types' },
+      { text: 'Marques', icon: <BrandingWatermarkIcon />, to: '/marques' },
+      { text: 'Modèles', icon: <DevicesOtherIcon />, to: '/modeles' },
+      { text: 'Matériels', icon: <DevicesIcon />, to: '/materiels' },
+      { text: 'Ajouter Matériel', icon: <AddCircleOutlineIcon />, to: '/ajouter-materiel' },
+      { text: 'Affectations', icon: <AssignmentIndIcon />, to: '/affectations' },
+      { text: 'Affectations (liste)', icon: <AssignmentIndIcon />, to: '/affectations-liste' },
+    ]
+  },
+  {
+    subheader: 'Gestion Articles',
+    items: [
+      { text: 'Articles', icon: <ListAltIcon />, to: '/articles' },
+      { text: 'Demandes', icon: <AssignmentIcon />, to: '/demandes' },
+    ]
+  }
 ];
 
 function MuiLayout(props) {
@@ -100,6 +116,8 @@ function MuiLayout(props) {
   const [anchorEl, setAnchorEl] = React.useState(null);
   const open = Boolean(anchorEl);
   const location = useLocation();
+  const { logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -108,38 +126,58 @@ function MuiLayout(props) {
   const handleProfileMenuOpen = (event) => { setAnchorEl(event.currentTarget); };
   const handleMenuClose = () => { setAnchorEl(null); };
 
+  const handleProfileClick = () => {
+    handleMenuClose();
+    navigate('/profile');
+  };
+  const handleEditProfileClick = () => {
+    handleMenuClose();
+    navigate('/profile/edit');
+  };
+  const handleChangePasswordClick = () => {
+    handleMenuClose();
+    navigate('/profile/password');
+  };
+  const handleLogoutClick = () => {
+    handleMenuClose();
+    logout();
+  };
+
   const drawer = (
     <div style={{ background: '#1B4C43', height: '100%' }}>
       <Toolbar sx={{ justifyContent: 'center', background: '#fff', mb: 1, borderBottom: '1px solid #eee', minHeight: 56 }}>
         <img src={logoAndzoa} alt="ANDZOA Logo" style={{ height: 32 }} />
       </Toolbar>
       <Divider sx={{ borderColor: '#A97B2A' }} />
-      <List sx={{ mt: 2 }}>
-        {navItems.map((item, index) => (
-          <Tooltip title={item.text} placement="right" arrow key={item.text}>
-            <ListItem disablePadding sx={{ display: 'block' }}>
-              <ListItemButton
-                component={Link}
-                to={item.to}
-                selected={location.pathname === item.to}
-                sx={{
-                  minHeight: 48,
-                  justifyContent: 'flex-start',
-                  px: 2.5,
-                  color: '#fff',
-                  '&.Mui-selected, &.Mui-selected:hover': { background: '#A97B2A', color: '#fff' },
-                  '&:hover': { background: '#A97B2A', color: '#fff' },
-                  borderRadius: 2,
-                  mx: 0.5, my: 0.5
-                }}
-              >
-                <ListItemIcon sx={{ color: '#fff', minWidth: 40, mr: 1 }}>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.text} sx={{ color: '#fff', fontWeight: 500 }} />
-              </ListItemButton>
-            </ListItem>
-          </Tooltip>
-        ))}
-      </List>
+      {navGroups.map((group, gIdx) => (
+        <List key={gIdx} sx={{ mt: gIdx === 0 ? 2 : 0, mb: 1 }}
+          subheader={group.subheader ? <ListSubheader sx={{ color: '#fff', bgcolor: 'inherit', fontWeight: 700, fontSize: 15 }}>{group.subheader}</ListSubheader> : null}>
+          {group.items.map((item, index) => (
+            <Tooltip title={item.text} placement="right" arrow key={item.text}>
+              <ListItem disablePadding sx={{ display: 'block' }}>
+                <ListItemButton
+                  component={Link}
+                  to={item.to}
+                  selected={location.pathname === item.to}
+                  sx={{
+                    minHeight: 48,
+                    justifyContent: 'flex-start',
+                    px: 2.5,
+                    color: '#fff',
+                    '&.Mui-selected, &.Mui-selected:hover': { background: '#A97B2A', color: '#fff' },
+                    '&:hover': { background: '#A97B2A', color: '#fff' },
+                    borderRadius: 2,
+                    mx: 0.5, my: 0.5
+                  }}
+                >
+                  <ListItemIcon sx={{ color: '#fff', minWidth: 40, mr: 1 }}>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.text} sx={{ color: '#fff', fontWeight: 500 }} />
+                </ListItemButton>
+              </ListItem>
+            </Tooltip>
+          ))}
+        </List>
+      ))}
     </div>
   );
 
@@ -168,10 +206,10 @@ function MuiLayout(props) {
             <AccountCircle sx={{ color: '#A97B2A' }} />
           </IconButton>
           <Menu anchorEl={anchorEl} open={open} onClose={handleMenuClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
-            <MenuItem onClick={handleMenuClose}>Voir le profil</MenuItem>
-            <MenuItem onClick={handleMenuClose}>Modifier les informations</MenuItem>
-            <MenuItem onClick={handleMenuClose}>Changer le mot de passe</MenuItem>
-            <MenuItem onClick={handleMenuClose} sx={{ color: 'red' }}>Logout</MenuItem>
+            <MenuItem onClick={handleProfileClick}>Voir le profil</MenuItem>
+            <MenuItem onClick={handleEditProfileClick}>Modifier les informations</MenuItem>
+            <MenuItem onClick={handleChangePasswordClick}>Changer le mot de passe</MenuItem>
+            <MenuItem onClick={handleLogoutClick} sx={{ color: 'red' }}>Logout</MenuItem>
           </Menu>
         </Toolbar>
       </AppBar>

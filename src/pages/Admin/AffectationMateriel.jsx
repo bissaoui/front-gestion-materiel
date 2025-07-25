@@ -7,7 +7,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { Typeahead } from 'react-bootstrap-typeahead';
 import 'react-bootstrap-typeahead/css/Typeahead.css';
 import CardLayout from '../../components/CardLayout';
-import MaterielForm from '../../components/MaterielForm';
 import navTabs from '../../components/adminNavTabs';
 
 const AffectationMateriel = () => {

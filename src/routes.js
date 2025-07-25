@@ -20,6 +20,8 @@ import AffectationsList from "./pages/Admin/AffectationsList";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
 import ModernDashboard from "./pages/Admin/ModernDashboard";
 import MuiLayout from "./pages/Admin/MuiLayout";
+import ProfileEdit from "./pages/ProfileEdit";
+import ChangePassword from './pages/ChangePassword';
 
 const AppRoutes = () => {
   return (
@@ -27,6 +29,8 @@ const AppRoutes = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Home />} />
       <Route path="/profile" element={<MuiLayout children={<Profile />} />} />
+      <Route path="/profile/password" element={<MuiLayout children={<ChangePassword />} />} />
+      <Route path="/profile/edit" element={<MuiLayout children={<ProfileEdit />} />} />
       <Route path="/articles" element={<MuiLayout children={<ArticleList />} />} />
       <Route path="/articles/create" element={<MuiLayout children={<CreateArticle />} />} />
       <Route path="/demandes/create" element={<MuiLayout children={<CreateDemande />} />} />
