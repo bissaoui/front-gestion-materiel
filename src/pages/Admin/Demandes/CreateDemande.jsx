@@ -32,8 +32,8 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { getToken } from "../../utils/storage";
-import { API_URL } from "../../api/auth";
+import { getToken } from "../../../utils/storage";
+import { API_URL } from "../../../api/auth";
 
 const CreateDemande = () => {
   const [date, setDate] = useState("");

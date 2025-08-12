@@ -15,7 +15,7 @@ const HomeContent = () => (
             <img
               src={logo}
               alt="ANDZOA Logo"
-              style={{ maxWidth: 140, height: 'auto', borderRadius: 12, boxShadow: '0 2px 12px #0001' }}
+              style={{ maxWidth: 900, height: 'auto', borderRadius: 12}}
             />
           </Box>
         </Grid>

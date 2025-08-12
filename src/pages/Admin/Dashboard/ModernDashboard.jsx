@@ -2,10 +2,10 @@ import React, { useEffect, useState } from "react";
 import { Container, Row, Col, Card, Button, Badge, Spinner, Alert } from "react-bootstrap";
 import { Pie, Bar } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
-import { getMateriels, getTypes, getMarques } from "../../api/materiel";
+import { getMateriels, getTypes, getMarques } from '../../../api/materiel';
 import axios from "axios";
-import { API_URL } from "../../api/auth";
-import { getToken } from "../../utils/storage";
+import { API_URL } from '../../../api/auth';
+import { getToken } from '../../../utils/storage';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 

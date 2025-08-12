@@ -3,25 +3,26 @@ import { Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Home from "./pages/Home";
-import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "./components/NotFound";
-import ArticleList from "./pages/Article/ArticleList";
-import CreateArticle from "./pages/Article/CreateArticle";
-import CreateDemande from "./pages/Demandes/CreateDemande";
-import MesDemandes from "./pages/Demandes/MesDemandes";
-import DemandeDetails from "./pages/Demandes/DetailsDemande";
-import TypeList from "./pages/Admin/TypeList";
-import MarqueList from "./pages/Admin/MarqueList";
-import ModeleList from "./pages/Admin/ModeleList";
-import MaterielList from "./pages/Admin/MaterielList";
-import AffectationMateriel from "./pages/Admin/AffectationMateriel";
-import AjouterMateriel from "./pages/Admin/AjouterMateriel";
-import AffectationsList from "./pages/Admin/AffectationsList";
-import AdminDashboard from "./pages/Admin/AdminDashboard";
-import ModernDashboard from "./pages/Admin/ModernDashboard";
+import ArticleList from "./pages/Admin/Article/ArticleList";
+import CreateArticle from "./pages/Admin/Article/CreateArticle";
+import CreateDemande from "./pages/Admin/Demandes/CreateDemande";
+import MesDemandes from "./pages/Admin/Demandes/MesDemandes";
+import DemandeDetails from "./pages/Admin/Demandes/DetailsDemande";
+import TypeList from "./pages/Admin/Models_Marque_Type/TypeList";
+import MarqueList from "./pages/Admin/Models_Marque_Type/MarqueList";
+import ModeleList from "./pages/Admin/Models_Marque_Type/ModeleList";
+import MaterielList from "./pages/Admin/Materiel/MaterielList";
+import AffectationMateriel from "./pages/Admin/Materiel/AffectationMateriel";
+import AjouterMateriel from "./pages/Admin/Materiel/AjouterMateriel";
+import AffectationsList from "./pages/Admin/Materiel/AffectationsList";
+import AdminDashboard from "./pages/Admin/Dashboard/AdminDashboard";
+import ModernDashboard from "./pages/Admin/Dashboard/ModernDashboard";
 import MuiLayout from "./pages/Admin/MuiLayout";
 import ProfileEdit from "./pages/ProfileEdit";
 import ChangePassword from './pages/ChangePassword';
+import AgentForm from "./pages/Admin/Agents/AgentForm";
+import AgentsList from "./pages/Admin/Agents/AgentsList";
 
 const AppRoutes = () => {
   return (
@@ -36,9 +37,10 @@ const AppRoutes = () => {
       <Route path="/demandes/create" element={<MuiLayout children={<CreateDemande />} />} />
       <Route path="/demandes" element={<MuiLayout children={<MesDemandes />} />} />
       <Route path="/demande/details/:id" element={<MuiLayout children={<DemandeDetails />} />} />
+
       <Route path="*" element={<NotFound />} />
       <Route path="/mui-layout" element={<MuiLayout />} />
-      <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
+      {/* <Route element={<ProtectedRoute requiredRole="ADMIN" />}> */}
         <Route path="/types" element={<MuiLayout children={<TypeList />} />} />
         <Route path="/marques" element={<MuiLayout children={<MarqueList />} />} />
         <Route path="/modeles" element={<MuiLayout children={<ModeleList />} />} />
@@ -48,7 +50,9 @@ const AppRoutes = () => {
         <Route path="/affectations-liste" element={<MuiLayout children={<AffectationsList />} />} />
         <Route path="/admin-dashboard" element={<MuiLayout children={<AdminDashboard />} />} />
         <Route path="/modern-dashboard" element={<MuiLayout children={<ModernDashboard />} />} />
-      </Route>
+        <Route path="/agents" element={<MuiLayout children={<AgentsList />} />} />
+        <Route path="/agents/create" element={<MuiLayout children={<AgentForm />} />} />
+      {/* </Route> */}
     </Routes>
   );
 };

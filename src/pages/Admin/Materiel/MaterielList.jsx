@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getMateriels, getTypes, getMarques, getModeles, deleteMateriel, getModelesByMarqueAndType, addMateriel, updateMateriel } from '../../api/materiel';
+import { getMateriels, getTypes, getMarques, getModeles, deleteMateriel, getModelesByMarqueAndType, addMateriel, updateMateriel } from '../../../api/materiel';
 import { Link, useLocation } from 'react-router-dom';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -21,9 +21,10 @@ import CircularProgress from '@mui/material/CircularProgress';
 import TablePagination from '@mui/material/TablePagination';
 import DeleteIcon from '@mui/icons-material/Delete';
 import MenuItem from '@mui/material/MenuItem';
-import CardLayout from '../../components/CardLayout';
-import navTabs from '../../components/adminNavTabs';
-import { materielColumns } from '../../components/adminTableColumns';
+import CardLayout from '../../../components/CardLayout';
+import navTabs from '../../../components/adminNavTabs';
+import { materielColumns } from '../../../components/adminTableColumns';
+
 import Tooltip from '@mui/material/Tooltip';
 import Checkbox from '@mui/material/Checkbox';
 import EditIcon from '@mui/icons-material/Edit';

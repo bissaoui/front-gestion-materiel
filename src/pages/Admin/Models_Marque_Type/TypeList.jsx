@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getTypes, addType, deleteType } from '../../api/materiel';
+import { getTypes, addType, deleteType } from '../../../api/materiel';
 import { Link, useLocation } from 'react-router-dom';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -22,9 +22,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 import TablePagination from '@mui/material/TablePagination';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import CardLayout from '../../components/CardLayout';
-import navTabs from '../../components/adminNavTabs';
-import { typeColumns } from '../../components/adminTableColumns';
+import CardLayout from '../../../components/CardLayout';
+import navTabs from '../../../components/adminNavTabs';
+import { typeColumns } from '../../../components/adminTableColumns';
 
 const TypeList = () => {
   const [types, setTypes] = useState([]);

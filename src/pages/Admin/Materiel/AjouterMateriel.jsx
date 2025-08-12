@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getTypes, getMarques, getModeles, addMateriel } from '../../api/materiel';
+import { getTypes, getMarques, getModeles, addMateriel } from '../../../api/materiel';
 import { Link, useLocation } from 'react-router-dom';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -12,9 +12,11 @@ import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import MenuItem from '@mui/material/MenuItem';
-import MaterielForm from '../../components/MaterielForm';
-import CardLayout from '../../components/CardLayout';
-import navTabs from '../../components/adminNavTabs';
+import MaterielForm from '../../../components/MaterielForm';
+import CardLayout from '../../../components/CardLayout';
+import navTabs from '../../../components/adminNavTabs';
+import { materielColumns } from '../../../components/adminTableColumns';
+
 
 const AjouterMateriel = () => {
   const [types, setTypes] = useState([]);

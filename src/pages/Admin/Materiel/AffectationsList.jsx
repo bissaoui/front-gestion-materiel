@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { API_URL } from '../../api/auth';
-import { getToken } from '../../utils/storage';
+import { API_URL } from '../../../api/auth';
+import { getToken } from '../../../utils/storage';
 import {
   Table as MuiTable,
   TableBody,
@@ -23,10 +23,11 @@ import {
   InputLabel,
   FormControl
 } from '@mui/material';
-import PaginationControl from '../../components/PaginationControl';
+import PaginationControl from '../../../components/PaginationControl';
 import { Link } from 'react-router-dom';
-import CardLayout from '../../components/CardLayout';
-import navTabs from '../../components/adminNavTabs';
+import CardLayout from '../../../components/CardLayout';
+import navTabs from "../../../components/adminNavTabs";
+
 
 const AffectationsList = () => {
   const [materiels, setMateriels] = useState([]);

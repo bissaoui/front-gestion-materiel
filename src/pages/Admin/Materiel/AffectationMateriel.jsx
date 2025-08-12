@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { API_URL } from '../../api/auth';
-import { getToken } from '../../utils/storage';
+import { API_URL } from '../../../api/auth';
+import { getToken } from '../../../utils/storage';
 import { Container, Form, Button, Alert, Row, Col, Spinner, Nav } from 'react-bootstrap';
 import { Link, useLocation } from 'react-router-dom';
 import { Typeahead } from 'react-bootstrap-typeahead';
 import 'react-bootstrap-typeahead/css/Typeahead.css';
-import CardLayout from '../../components/CardLayout';
-import navTabs from '../../components/adminNavTabs';
+import CardLayout from '../../../components/CardLayout';
+import navTabs from '../../../components/adminNavTabs';
 
 const AffectationMateriel = () => {
   const [agents, setAgents] = useState([]);

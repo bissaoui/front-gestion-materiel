@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, Container, Button, Spinner, Table } from "react-bootstrap";
 import axios from "axios";
-import { getToken } from "../../utils/storage";
-import { API_URL } from "../../api/auth";
+import { getToken } from "../../../utils/storage";
+import { API_URL } from "../../../api/auth";
 import { jsPDF } from "jspdf";
 
 const DemandeDetails = () => {

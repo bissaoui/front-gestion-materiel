@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Card, Row, Col, Container, Spinner, Alert } from "react-bootstrap";
-import { getMateriels, getTypes, getMarques, getModeles } from "../../api/materiel";
+import { getMateriels, getTypes, getMarques, getModeles } from "../../../api/materiel";
 import axios from "axios";
-import { API_URL } from "../../api/auth";
-import { getToken } from "../../utils/storage";
+import { API_URL } from "../../../api/auth";
+import { getToken } from "../../../utils/storage";
 import { Pie, Bar, Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
@@ -65,13 +65,6 @@ const AdminDashboard = () => {
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   }).length;
 
-  // De-assignments this month (placeholder if not available)
-  // If you have a dateDesaffectation field, use it. Otherwise, show 'Non disponible'.
-  const desaffectationsThisMonth = materiels.filter(m => {
-    if (!m.dateDesaffectation) return false;
-    const d = new Date(m.dateDesaffectation);
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-  }).length;
 
   // Most active agent (by number of assigned materials)
   const agentAssignmentCounts = agents.map(agent => ({
@@ -191,7 +184,7 @@ const AdminDashboard = () => {
               </Card>
             </Col>
             <Col md={3} className="mb-3">
-              <Card bg="light" text="dark" className="h-100 clickable-card" onClick={() => window.location.href='/materiels'}>
+              <Card bg="light" text="dark" className="h-100 clickable-card" >
                 <Card.Body>
                   <Card.Title>Matériels Disponibles</Card.Title>
                   <Card.Text style={{ fontSize: 32 }}>{availableCount}</Card.Text>
@@ -199,7 +192,7 @@ const AdminDashboard = () => {
               </Card>
             </Col>
             <Col md={3} className="mb-3">
-              <Card bg="primary" text="white" className="h-100 clickable-card" onClick={() => window.location.href='/profile'}>
+              <Card bg="primary" text="white" className="h-100 clickable-card" onClick={() => window.location.href='/agents'}>
                 <Card.Body>
                   <Card.Title>Total Agents</Card.Title>
                   <Card.Text style={{ fontSize: 32 }}>{agents.length}</Card.Text>

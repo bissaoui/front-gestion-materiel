@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { getTypes, getMarques, addModele, deleteModele, getModelesByMarqueAndType, getMateriels } from '../../api/materiel';
-import { Link, useLocation } from 'react-router-dom';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Typography from '@mui/material/Typography';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
+import { getTypes, getMarques, addModele, deleteModele, getModelesByMarqueAndType, getMateriels } from '../../../api/materiel';
+import { useLocation } from 'react-router-dom';
+
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
@@ -20,12 +16,11 @@ import Checkbox from '@mui/material/Checkbox';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import TablePagination from '@mui/material/TablePagination';
-import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import MenuItem from '@mui/material/MenuItem';
-import CardLayout from '../../components/CardLayout';
-import navTabs from '../../components/adminNavTabs';
-import { modeleColumns } from '../../components/adminTableColumns';
+import { modeleColumns } from '../../../components/adminTableColumns';
+import CardLayout from '../../../components/CardLayout';
+import navTabs from '../../../components/adminNavTabs';
 import Tooltip from '@mui/material/Tooltip';
 
 const ModeleList = () => {
