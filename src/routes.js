@@ -23,6 +23,7 @@ import ProfileEdit from "./pages/ProfileEdit";
 import ChangePassword from './pages/ChangePassword';
 import AgentForm from "./pages/Admin/Agents/AgentForm";
 import AgentsList from "./pages/Admin/Agents/AgentsList";
+import MarcheList from "./pages/Admin/Marche/MarcheList";
 
 const AppRoutes = () => {
   return (
@@ -45,6 +46,7 @@ const AppRoutes = () => {
         <Route path="/marques" element={<MuiLayout children={<MarqueList />} />} />
         <Route path="/modeles" element={<MuiLayout children={<ModeleList />} />} />
         <Route path="/materiels" element={<MuiLayout children={<MaterielList />} />} />
+        <Route path="/marches" element={<MuiLayout children={<MarcheList />} />} />
         <Route path="/affectations" element={<MuiLayout children={<AffectationMateriel />} />} />
         <Route path="/ajouter-materiel" element={<MuiLayout children={<AjouterMateriel />} />} />
         <Route path="/affectations-liste" element={<MuiLayout children={<AffectationsList />} />} />

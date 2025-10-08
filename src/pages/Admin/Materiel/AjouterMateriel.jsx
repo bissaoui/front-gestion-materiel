@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { getTypes, getMarques, getModeles, addMateriel } from '../../../api/materiel';
+import { getTypes, getMarques, getModeles, getModelesByMarqueAndType, addMateriel } from '../../../api/materiel';
+import { getMarches } from '../../../api/marche';
 import { Link, useLocation } from 'react-router-dom';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -25,6 +26,8 @@ const AjouterMateriel = () => {
   const [selectedMarque, setSelectedMarque] = useState('');
   const [modeles, setModeles] = useState([]);
   const [selectedModele, setSelectedModele] = useState('');
+  const [marches, setMarches] = useState([]);
+  const [selectedMarche, setSelectedMarche] = useState('');
   const [numeroSerie, setNumeroSerie] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -35,6 +38,9 @@ const AjouterMateriel = () => {
     getTypes()
       .then(res => setTypes(res.data))
       .catch(() => setTypes([]));
+    getMarches()
+      .then(res => setMarches(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setMarches([]));
   }, []);
 
   useEffect(() => {
@@ -51,7 +57,13 @@ const AjouterMateriel = () => {
   }, [selectedType]);
 
   useEffect(() => {
-    if (selectedMarque) {
+    if (selectedMarque && selectedType) {
+      // Charger les modèles filtrés par marque ET type sélectionnés
+      getModelesByMarqueAndType(selectedMarque, selectedType)
+        .then(res => setModeles(Array.isArray(res.data) ? res.data : []))
+        .catch(() => setModeles([]));
+    } else if (selectedMarque) {
+      // Fallback: si pour une raison quelconque le type n'est pas encore sélectionné
       getModeles(selectedMarque)
         .then(res => setModeles(Array.isArray(res.data) ? res.data : []))
         .catch(() => setModeles([]));
@@ -59,7 +71,7 @@ const AjouterMateriel = () => {
       setModeles([]);
       setSelectedModele('');
     }
-  }, [selectedMarque]);
+  }, [selectedMarque, selectedType]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -74,7 +86,8 @@ const AjouterMateriel = () => {
       numeroSerie,
       typeMaterielId: selectedType,
       marqueId: selectedMarque,
-      modeleId: selectedModele
+      modeleId: selectedModele,
+      marcherId: selectedMarche || null
     };
     try {
       await addMateriel(body);
@@ -83,6 +96,7 @@ const AjouterMateriel = () => {
       setSelectedType('');
       setSelectedMarque('');
       setSelectedModele('');
+      setSelectedMarche('');
     } catch (e) {
       setError(e.response?.data?.message || "Erreur lors de l'ajout du matériel.");
     }
@@ -104,9 +118,12 @@ const AjouterMateriel = () => {
         setSelectedMarque={setSelectedMarque}
         selectedModele={selectedModele}
         setSelectedModele={setSelectedModele}
+        selectedMarche={selectedMarche}
+        setSelectedMarche={setSelectedMarche}
         types={types}
         marques={marques}
         modeles={modeles}
+        marches={marches}
         loading={loading}
         error={error}
         success={success}

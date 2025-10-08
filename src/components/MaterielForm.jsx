@@ -11,13 +11,15 @@ import CategoryIcon from '@mui/icons-material/Category';
 import BrandingWatermarkIcon from '@mui/icons-material/BrandingWatermark';
 import DevicesOtherIcon from '@mui/icons-material/DevicesOther';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
+import Autocomplete from '@mui/material/Autocomplete';
 
 const MaterielForm = ({
   numeroSerie, setNumeroSerie,
   selectedType, setSelectedType,
   selectedMarque, setSelectedMarque,
   selectedModele, setSelectedModele,
-  types = [], marques = [], modeles = [],
+  selectedMarche, setSelectedMarche,
+  types = [], marques = [], modeles = [], marches = [],
   loading, error, success,
   onSubmit,
   submitLabel = "Ajouter le matériel",
@@ -110,6 +112,22 @@ const MaterielForm = ({
         <MenuItem key={modele.id} value={String(modele.id)}>{modele.nom}</MenuItem>
       ))}
     </TextField>
+    <Autocomplete
+      options={marches.map(m => ({ label: m.name, id: String(m.id) }))}
+      value={marches.map(m => ({ label: m.name, id: String(m.id) })).find(opt => opt.id === String(selectedMarche)) || null}
+      onChange={(e, val) => setSelectedMarche(val ? val.id : '')}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label="Marché (recherchable)"
+          size="small"
+          sx={{ minWidth: 200, background: '#fafbfc', borderRadius: 2 }}
+          helperText="Tapez pour filtrer, laissez vide si non concerné"
+        />
+      )}
+      isOptionEqualToValue={(opt, val) => opt.id === val.id}
+      sx={{ minWidth: 200 }}
+    />
     <Button
       type="submit"
       variant="contained"

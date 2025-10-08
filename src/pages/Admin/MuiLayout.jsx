@@ -33,6 +33,7 @@ import DevicesOtherIcon from '@mui/icons-material/DevicesOther';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
+import StoreIcon from '@mui/icons-material/Store';
 import { useAuth } from '../../context/AuthContext';
 import ListSubheader from '@mui/material/ListSubheader';
 
@@ -92,6 +93,7 @@ const navGroups = [
       { text: 'Marques', icon: <BrandingWatermarkIcon />, to: '/marques' },
       { text: 'Modèles', icon: <DevicesOtherIcon />, to: '/modeles' },
       { text: 'Matériels', icon: <DevicesIcon />, to: '/materiels' },
+      { text: 'Marchés', icon: <StoreIcon />, to: '/marches' },
       { text: 'Ajouter Matériel', icon: <AddCircleOutlineIcon />, to: '/ajouter-materiel' },
       { text: 'Affectations', icon: <AssignmentIndIcon />, to: '/affectations' },
       { text: 'Affectations (liste)', icon: <AssignmentIndIcon />, to: '/affectations-liste' },
@@ -140,7 +142,7 @@ function MuiLayout(props) {
   };
 
   const drawer = (
-    <div style={{ background: '#1B4C43', height: '100%' }}>
+    <div style={{ height: '100%' }}>
       <Toolbar sx={{ justifyContent: 'center', background: '#fff', mb: 1, borderBottom: '1px solid #eee', minHeight: 56 }}>
         <img src={logoAndzoa} alt="ANDZOA Logo" style={{ height: 32 }} />
       </Toolbar>
@@ -221,7 +223,7 @@ function MuiLayout(props) {
           ModalProps={{ keepMounted: true }}
           sx={{
             display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, bgcolor: '#1B4C43', color: '#fff', backgroundImage: 'none' },
           }}
         >
           {drawer}
@@ -230,7 +232,7 @@ function MuiLayout(props) {
           variant="permanent"
           sx={{
             display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, bgcolor: '#1B4C43', color: '#fff', backgroundImage: 'none' },
           }}
           open
         >
@@ -239,7 +241,7 @@ function MuiLayout(props) {
       </Box>
       <Box
         component="main"
-        sx={{ flexGrow: 1, width: { sm: `calc(10% - ${drawerWidth}px)` }, minHeight: '100vh', px: { xs: 3, sm: 12 } }}
+        sx={{ flexGrow: 1, width: { sm: `calc(100% - ${drawerWidth}px)` }, minHeight: '100vh', px: { xs: 3, sm: 12 } }}
       >
         <Toolbar sx={{ minHeight: 59, p: 1, m: 3 }} />
         {props.children ? props.children : <ModernDashboard />}
