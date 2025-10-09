@@ -98,7 +98,6 @@ const navGroups = [
       { text: 'Affectations', icon: <AssignmentIndIcon />, to: '/affectations' },
       { text: 'Affectations (liste)', icon: <AssignmentIndIcon />, to: '/affectations-liste' },
       { text: 'Agents', icon: <PeopleIcon />, to: '/agents' },
-      { text: 'Test Décharge', icon: <ListAltIcon />, to: '/decharges/test' },
     ]
   },
   {

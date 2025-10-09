@@ -24,7 +24,6 @@ import ChangePassword from './pages/ChangePassword';
 import AgentForm from "./pages/Admin/Agents/AgentForm";
 import AgentsList from "./pages/Admin/Agents/AgentsList";
 import MarcheList from "./pages/Admin/Marche/MarcheList";
-import DechargeTest from "./pages/Admin/Decharge/DechargeTest";
 
 const AppRoutes = () => {
   return (
@@ -55,7 +54,6 @@ const AppRoutes = () => {
         <Route path="/modern-dashboard" element={<MuiLayout children={<ModernDashboard />} />} />
         <Route path="/agents" element={<MuiLayout children={<AgentsList />} />} />
         <Route path="/agents/create" element={<MuiLayout children={<AgentForm />} />} />
-        <Route path="/decharges/test" element={<MuiLayout children={<DechargeTest />} />} />
       {/* </Route> */}
     </Routes>
   );
