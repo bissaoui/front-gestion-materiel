@@ -77,7 +77,7 @@ const AjouterMateriel = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    if (!numeroSerie.trim() || !selectedType || !selectedMarque || !selectedModele) {
+    if (!numeroSerie.trim() || !selectedType || !selectedMarque || !selectedModele || !selectedMarche) {
       setError('Tous les champs sont obligatoires.');
       return;
     }
@@ -87,7 +87,7 @@ const AjouterMateriel = () => {
       typeMaterielId: selectedType,
       marqueId: selectedMarque,
       modeleId: selectedModele,
-      marcherId: selectedMarche || null
+      marcherId: selectedMarche
     };
     try {
       await addMateriel(body);

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getMarches, addMarche, deleteMarche } from '../../../api/marche';
 import { getMateriels, updateMateriel, getTypes, getMarques, getModeles } from '../../../api/materiel';
+import { getAgents } from '../../../api/agents';
 import { useLocation } from 'react-router-dom';
 import CardLayout from '../../../components/CardLayout';
 import navTabs from '../../../components/adminNavTabs';
@@ -31,8 +32,10 @@ const MarcheList = () => {
   const [types, setTypes] = useState([]);
   const [marques, setMarques] = useState([]);
   const [modeles, setModeles] = useState([]);
+  const [agents, setAgents] = useState([]);
   const [selectedMaterielIds, setSelectedMaterielIds] = useState([]);
-  const [newMarche, setNewMarche] = useState({ name: '', date: '' });
+  const today = new Date().toISOString().slice(0, 10);
+  const [newMarche, setNewMarche] = useState({ name: '', date: today });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -85,18 +88,20 @@ const MarcheList = () => {
     setLoading(true);
     setError('');
     try {
-      const [mRes, matRes, tRes, mkRes, mdRes] = await Promise.all([
+      const [mRes, matRes, tRes, mkRes, mdRes, agRes] = await Promise.all([
         getMarches(),
         getMateriels(),
         getTypes(),
         getMarques(),
-        getModeles()
+        getModeles(),
+        getAgents()
       ]);
       setMarches(mRes.data || []);
       setMateriels(matRes.data || []);
       setTypes(tRes.data || []);
       setMarques(mkRes.data || []);
       setModeles(mdRes.data || []);
+      setAgents(agRes.data || []);
     } catch (e) {
       setError(e.response?.data?.message || 'Erreur lors du chargement.');
     }
@@ -262,6 +267,7 @@ const MarcheList = () => {
                                             <TableCell>Numéro de série</TableCell>
                                             <TableCell>Marque</TableCell>
                                             <TableCell>Modèle</TableCell>
+                                            <TableCell>Bénéficiaire</TableCell>
                                           </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -270,6 +276,10 @@ const MarcheList = () => {
                                               <TableCell>{mat.numeroSerie}</TableCell>
                                               <TableCell>{mat.marque?.nom || mat.marqueNom || (marques.find(mk => mk.id === mat.marqueId)?.nom)}</TableCell>
                                               <TableCell>{mat.modele?.nom || mat.modeleNom || (modeles.find(md => md.id === mat.modeleId)?.nom)}</TableCell>
+                                              <TableCell>{(() => {
+                                                const agent = agents.find(a => a.id === mat.agentId);
+                                                return agent ? `${agent.nom} ${agent.username}` : '-';
+                                              })()}</TableCell>
                                             </TableRow>
                                           ))}
                                         </TableBody>
@@ -292,41 +302,46 @@ const MarcheList = () => {
         </TableContainer>
       )}
 
-      <Box sx={{ mt: 4 }}>
-        <Box sx={{ mb: 1, fontWeight: 600 }}>Sélectionner des matériels à lier au marché en cours de création</Box>
-        <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 1 }}>
-          <Table>
-            <TableHead sx={{ background: '#f4f6fa' }}>
-              <TableRow>
-                <TableCell padding="checkbox">
-                  <Checkbox
-                    checked={allVisibleSelected}
-                    indeterminate={!allVisibleSelected && someVisibleSelected}
-                    onChange={toggleSelectAllVisible}
-                  />
-                </TableCell>
-                <TableCell>Numéro de série</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Marque</TableCell>
-                <TableCell>Modèle</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {unlinkedMateriels.slice(0, 10).map(mat => (
-                <TableRow key={mat.id}>
-                  <TableCell padding="checkbox">
-                    <Checkbox checked={selectedMaterielIds.includes(mat.id)} onChange={() => toggleMateriel(mat.id)} />
-                  </TableCell>
-                  <TableCell>{mat.numeroSerie}</TableCell>
-                  <TableCell>{mat.type?.nom || mat.typeNom || (types.find(t => t.id === mat.typeMaterielId)?.nom)}</TableCell>
-                  <TableCell>{mat.marque?.nom || mat.marqueNom || (marques.find(mk => mk.id === mat.marqueId)?.nom)}</TableCell>
-                  <TableCell>{mat.modele?.nom || mat.modeleNom || (modeles.find(md => md.id === mat.modeleId)?.nom)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
+      {/**
+       * Hidden temporarily: selection of matériels to link during marché creation.
+       * Uncomment this block to restore the inline selection UI.
+       *
+       * <Box sx={{ mt: 4 }}>
+       *   <Box sx={{ mb: 1, fontWeight: 600 }}>Sélectionner des matériels à lier au marché en cours de création</Box>
+       *   <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 1 }}>
+       *     <Table>
+       *       <TableHead sx={{ background: '#f4f6fa' }}>
+       *         <TableRow>
+       *           <TableCell padding="checkbox">
+       *             <Checkbox
+       *               checked={allVisibleSelected}
+       *               indeterminate={!allVisibleSelected && someVisibleSelected}
+       *               onChange={toggleSelectAllVisible}
+       *             />
+       *           </TableCell>
+       *           <TableCell>Numéro de série</TableCell>
+       *           <TableCell>Type</TableCell>
+       *           <TableCell>Marque</TableCell>
+       *           <TableCell>Modèle</TableCell>
+       *         </TableRow>
+       *       </TableHead>
+       *       <TableBody>
+       *         {unlinkedMateriels.slice(0, 10).map(mat => (
+       *           <TableRow key={mat.id}>
+       *             <TableCell padding="checkbox">
+       *               <Checkbox checked={selectedMaterielIds.includes(mat.id)} onChange={() => toggleMateriel(mat.id)} />
+       *             </TableCell>
+       *             <TableCell>{mat.numeroSerie}</TableCell>
+       *             <TableCell>{mat.type?.nom || mat.typeNom || (types.find(t => t.id === mat.typeMaterielId)?.nom)}</TableCell>
+       *             <TableCell>{mat.marque?.nom || mat.marqueNom || (marques.find(mk => mk.id === mat.marqueId)?.nom)}</TableCell>
+       *             <TableCell>{mat.modele?.nom || mat.modeleNom || (modeles.find(md => md.id === mat.modeleId)?.nom)}</TableCell>
+       *           </TableRow>
+       *         ))}
+       *       </TableBody>
+       *     </Table>
+       *   </TableContainer>
+       * </Box>
+       */}
     </CardLayout>
   );
 };

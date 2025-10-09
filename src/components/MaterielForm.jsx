@@ -122,7 +122,8 @@ const MaterielForm = ({
           label="Marché (recherchable)"
           size="small"
           sx={{ minWidth: 200, background: '#fafbfc', borderRadius: 2 }}
-          helperText="Tapez pour filtrer, laissez vide si non concerné"
+          required
+          helperText="Obligatoire"
         />
       )}
       isOptionEqualToValue={(opt, val) => opt.id === val.id}

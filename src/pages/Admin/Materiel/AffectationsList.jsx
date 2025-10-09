@@ -27,6 +27,7 @@ import PaginationControl from '../../../components/PaginationControl';
 import { Link } from 'react-router-dom';
 import CardLayout from '../../../components/CardLayout';
 import navTabs from "../../../components/adminNavTabs";
+import logoAndzoa from '../../../assets/logoD.png';
 
 
 const AffectationsList = () => {
@@ -63,6 +64,74 @@ const AffectationsList = () => {
     }).catch(() => setError("Erreur lors du chargement des données"))
       .finally(() => setLoading(false));
   }, []);
+
+  const handlePrintDecharge = (materiel) => {
+    const agent = agents.find(a => a.id === materiel.agentId);
+    if (!agent) return;
+    const type = types.find(t => t.id === materiel.typeMaterielId)?.nom || '';
+    const marque = marques.find(ma => ma.id === materiel.marqueId)?.nom || '';
+    const modele = modeles.find(mo => mo.id === materiel.modeleId)?.nom || '';
+    const prettyDate = materiel.dateAffectation ? new Date(materiel.dateAffectation).toLocaleDateString() : new Date().toLocaleDateString();
+    const mats = [
+      { type, marque, modele, numeroSerie: materiel.numeroSerie },
+      { type: '', marque: '', modele: '', numeroSerie: '' },
+      { type: '', marque: '', modele: '', numeroSerie: '' },
+    ];
+    const col = (field) => mats.map(m => `<td class=\"cell\">${m[field] || ''}</td>`).join('');
+    const logoUrl = `${window.location.origin}${logoAndzoa.startsWith('/') ? '' : '/'}${logoAndzoa}`;
+    const html = `<!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset=\"utf-8\" />
+        <title>Décharge de matériel informatique</title>
+        <style>
+          @media print { @page { size: A4; margin: 14mm; } }
+          body { font-family: Arial, Helvetica, sans-serif; color: #000; }
+          .logo-wrap { display:flex; justify-content:center; margin-bottom: 20px; }
+          .logo { height: 120px; }
+          .city { text-align:right; margin-top: 6px; font-size: 13px; }
+          h1 { text-align:center; text-decoration: underline; font-size: 20px; margin: 14px 0 18px; }
+          .intro { text-align:center; font-size: 13px; margin-bottom: 10px; }
+          table { width: 100%; border-collapse: collapse; margin: 10px 0 12px; }
+          .label { width: 170px; font-weight: 700; }
+          .sep { width: 8px; text-align:center; }
+          .cell { width: calc((100% - 178px) / 3); text-align: left; padding-left: 6px; }
+          .line { height: 10px; }
+          .commit { text-align:center; font-size: 13px; line-height: 1.5; margin: 16px 0 28px; }
+          .sigrow { display:flex; justify-content: space-between; margin-top: 14px; }
+          .sigbox { width: 45%; text-align:center; }
+          .dotted { margin-top: 18px; border-top: 1px dotted #333; width: 75%; margin-left:auto; margin-right:auto; }
+          .visa { text-align:center; margin-top: 60px; font-weight:700; }
+        </style>
+      </head>
+      <body>
+        <div class=\"logo-wrap\"><img src=\"${logoUrl}\" class=\"logo\" /></div>
+        <div class=\"city\">Ville, le ${prettyDate}</div>
+        <h1 style=\"margin-bottom:10px;\" >Décharge de matériel informatique</h1>
+        <div class=\"intro\">Le(s) sous-signé(s) confirment réception du matériel suivant :</div>
+        <table>
+          <tr class=\"line\"><td class=\"label\">Désignation</td><td class=\"sep\">:</td>${col('type')}</tr>
+          <tr class=\"line\"><td class=\"label\">Marque</td><td class=\"sep\">:</td>${col('marque')}</tr>
+          <tr class=\"line\"><td class=\"label\">Modèle</td><td class=\"sep\">:</td>${col('modele')}</tr>
+          <tr class=\"line\"><td class=\"label\">Numéro de Série</td><td class=\"sep\">:</td>${col('numeroSerie')}</tr>
+        </table>
+        <div class=\"commit\">Le(s) sous-signé(s) s’engagent à traiter le matériel avec soin, à veiller à ce qu’il soit déposé en un lieu sûr, et à le restituer dans son intégralité et dans l’état d’origine, sauf dans les cas de forces majeurs.</div>
+        <div class=\"sigrow\">
+          <div class=\"sigbox\"><div>Nom et Prénom du preneur</div>
+          <div style=\"margin-top:10px;\">${agent.username.toUpperCase()} ${agent.nom.charAt(0).toUpperCase() + agent.nom.slice(1).toLowerCase()} </div>
+          <div style=\"margin-top:10px;\">Signature</div></div>
+          <div class=\"sigbox\"><div>SOSI</div></div>
+        </div>
+        <div class=\"visa\">VISA DAF</div>
+        <script>window.onload = function(){ window.print(); setTimeout(()=>window.close(), 300); };</script>
+      </body>
+      </html>`;
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  };
 
   const handleDesaffecter = async (id) => {
     if (!window.confirm('Désaffecter ce matériel ?')) return;
@@ -271,9 +340,14 @@ const AffectationsList = () => {
                       </TableCell>
                       <TableCell>
                         {m.agentId && (
-                          <MuiButton variant="outlined" color="error" size="small" onClick={() => handleDesaffecter(m.id)}>
-                            Désaffecter
-                          </MuiButton>
+                          <>
+                            <MuiButton variant="outlined" color="primary" size="small" sx={{ mr: 1 }} onClick={() => handlePrintDecharge(m)}>
+                              Imprimer décharge
+                            </MuiButton>
+                            <MuiButton variant="outlined" color="error" size="small" onClick={() => handleDesaffecter(m.id)}>
+                              Désaffecter
+                            </MuiButton>
+                          </>
                         )}
                       </TableCell>
                     </TableRow>

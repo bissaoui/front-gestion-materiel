@@ -3,17 +3,17 @@ import { API_URL } from './auth';
 import { getToken } from '../utils/storage';
 
 export const getMarches = () =>
-  axios.get(`${API_URL}/api/marchers`, {
+  axios.get(`${API_URL}/api/marches`, {
     headers: { Authorization: `Bearer ${getToken()}` }
   });
 
 export const addMarche = (data) =>
-  axios.post(`${API_URL}/api/marchers`, data, {
+  axios.post(`${API_URL}/api/marches`, data, {
     headers: { Authorization: `Bearer ${getToken()}` }
   });
 
 export const deleteMarche = (id) =>
-  axios.delete(`${API_URL}/api/marchers/${id}`, {
+  axios.delete(`${API_URL}/api/marches/${id}`, {
     headers: { Authorization: `Bearer ${getToken()}` }
   });
 
