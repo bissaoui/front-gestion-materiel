@@ -18,13 +18,14 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import TablePagination from '@mui/material/TablePagination';
-import Checkbox from '@mui/material/Checkbox';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import PrintIcon from '@mui/icons-material/Print';
 import Collapse from '@mui/material/Collapse';
 import IconButton from '@mui/material/IconButton';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import DechargePrint from '../../../components/DechargePrint';
 
 const MarcheList = () => {
   const [marches, setMarches] = useState([]);
@@ -44,6 +45,7 @@ const MarcheList = () => {
   const location = useLocation();
   const [openRows, setOpenRows] = useState({});
   const [openTypeRows, setOpenTypeRows] = useState({});
+  const [dechargeDialog, setDechargeDialog] = useState({ open: false, materiel: null, agent: null });
 
   const getLinkedCount = (marcheId) => {
     return materiels.filter(mat =>
@@ -83,6 +85,328 @@ const MarcheList = () => {
     const key = `${marcheId}:${typeName}`;
     setOpenTypeRows(prev => ({ ...prev, [key]: !prev[key] }));
   };
+
+
+  const handleCloseDecharge = () => {
+    setDechargeDialog({ open: false, materiel: null, agent: null });
+  };
+
+  const handlePrintDechargeDirect = (materiel) => {
+    const enrichedMateriel = {
+      ...materiel,
+      type: { nom: materiel.type?.nom || materiel.typeNom || (types.find(t => t.id === materiel.typeMaterielId)?.nom) || 'N/A' },
+      marque: { nom: materiel.marque?.nom || materiel.marqueNom || (marques.find(mk => mk.id === materiel.marqueId)?.nom) || 'N/A' },
+      modele: { nom: materiel.modele?.nom || materiel.modeleNom || (modeles.find(md => md.id === materiel.modeleId)?.nom) || 'N/A' },
+      marche: { name: materiel.marche?.name || materiel.marcheNom || 'N/A' }
+    };
+    
+    // Utiliser le même format que les décharges multiples
+    const dechargeContent = generateMultipleDechargesContent('DÉCHARGE', [enrichedMateriel], null);
+    
+    // Ouvrir la fenêtre d'impression directement
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (printWindow) {
+      printWindow.document.write(dechargeContent);
+      printWindow.document.close();
+      
+      // Attendre que le contenu soit chargé avant d'imprimer
+      printWindow.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+        
+        // Fermer la fenêtre après l'impression ou l'annulation
+        setTimeout(() => {
+          printWindow.close();
+        }, 300);
+      };
+      
+      // Fermer la fenêtre si l'utilisateur la ferme manuellement
+      printWindow.addEventListener('beforeunload', () => {
+        setTimeout(() => {
+          printWindow.close();
+        }, 100);
+      });
+    } else {
+      console.error('Impossible d\'ouvrir la fenêtre d\'impression');
+      setError('Impossible de générer la décharge');
+    }
+  };
+
+  const handlePrintAllDechargesForType = (typeName, materiels) => {
+    console.log(`Génération d'un PDF avec ${materiels.length} décharges pour le type: ${typeName}`);
+    console.log('typeName:', typeName);
+    console.log('materiels:', materiels);
+    
+    // Récupérer le nom du marché depuis la liste des marchés
+    let marcheName = 'N/A';
+    if (materiels.length > 0) {
+      const marcheId = materiels[0].marcheId || materiels[0].marcherId || materiels[0].marche?.id || materiels[0].marcher?.id;
+      const marche = marches.find(m => m.id === marcheId);
+      marcheName = marche ? marche.name : 'N/A';
+    }
+    
+    console.log('marcheId:', materiels.length > 0 ? (materiels[0].marcheId || materiels[0].marcherId) : 'N/A');
+    console.log('marcheName:', marcheName);
+    
+    // Afficher une notification
+    setSuccess(`Génération d'un PDF avec ${materiels.length} décharge(s) pour le type ${typeName}...`);
+    
+    // Générer le contenu HTML pour toutes les décharges avec le nom du marché
+    const allDechargesContent = generateMultipleDechargesContent(typeName, materiels, marcheName);
+    
+    // Ouvrir une seule fenêtre avec toutes les décharges
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    
+    if (printWindow) {
+      printWindow.document.write(allDechargesContent);
+      printWindow.document.close();
+      
+      // Attendre que le contenu soit chargé avant d'imprimer
+      printWindow.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+        
+        // Fermer la fenêtre après l'impression ou l'annulation
+        setTimeout(() => {
+          printWindow.close();
+        }, 3500);
+      };
+      
+      // Fermer la fenêtre si l'utilisateur la ferme manuellement
+      printWindow.addEventListener('beforeunload', () => {
+        setTimeout(() => {
+          printWindow.close();
+        }, 100);
+      });
+      
+      setSuccess(`PDF généré avec ${materiels.length} décharge(s) pour le type ${typeName} !`);
+    } else {
+      console.error('Impossible d\'ouvrir la fenêtre d\'impression');
+      setError('Impossible de générer le PDF');
+    }
+  };
+
+  const handlePrintAllDechargesForMarche = (marcheId, marcheName) => {
+    console.log('Recherche de matériels pour le marché:', marcheId, marcheName);
+    console.log('Tous les matériels:', materiels);
+    
+    // Utiliser la même logique que getLinkedCount
+    const marcheMateriels = materiels.filter(mat =>
+      mat?.marcherId === marcheId ||
+      mat?.marcheId === marcheId ||
+      mat?.marche?.id === marcheId ||
+      mat?.marcher?.id === marcheId
+    );
+    
+    console.log('Matériels trouvés:', marcheMateriels);
+    
+    if (marcheMateriels.length === 0) {
+      setError(`Aucun matériel trouvé pour le marché ${marcheName} (ID: ${marcheId})`);
+      return;
+    }
+
+    console.log(`Génération d'un PDF avec ${marcheMateriels.length} décharges pour le marché ${marcheName}`);
+    setSuccess(`Génération d'un PDF avec ${marcheMateriels.length} décharge(s) pour le marché ${marcheName}...`);
+    
+    const allDechargesContent = generateMultipleDechargesContent('MARCHÉ', marcheMateriels, marcheName);
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    
+    if (printWindow) {
+      printWindow.document.write(allDechargesContent);
+      printWindow.document.close();
+      
+      // Attendre que le contenu soit chargé avant d'imprimer
+      printWindow.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+        
+        // Fermer la fenêtre après l'impression ou l'annulation
+        setTimeout(() => {
+          printWindow.close();
+        }, 3500);
+      };
+      
+      // Fermer la fenêtre si l'utilisateur la ferme manuellement
+      printWindow.addEventListener('beforeunload', () => {
+        setTimeout(() => {
+          printWindow.close();
+        }, 100);
+      });
+      
+      setSuccess(`PDF généré avec ${marcheMateriels.length} décharge(s) pour le marché ${marcheName} !`);
+    } else {
+      console.error('Impossible d\'ouvrir la fenêtre d\'impression');
+      setError('Impossible de générer le PDF');
+    }
+  };
+
+  const generateMultipleDechargesContent = (typeName, materiels, marcheName = null) => {
+    // Générer le contenu de chaque décharge
+    const dechargesHTML = materiels.map((materiel, index) => {
+      const agent = agents.find(a => a.id === materiel.agentId);
+      
+      // Enrichir les données du matériel
+      const enrichedMateriel = {
+        ...materiel,
+        type: {
+          nom: materiel.type?.nom || materiel.typeNom || (types.find(t => t.id === materiel.typeMaterielId)?.nom) || 'N/A'
+        },
+        marque: {
+          nom: materiel.marque?.nom || materiel.marqueNom || (marques.find(mk => mk.id === materiel.marqueId)?.nom) || 'N/A'
+        },
+        modele: {
+          nom: materiel.modele?.nom || materiel.modeleNom || (modeles.find(md => md.id === materiel.modeleId)?.nom) || 'N/A'
+        },
+        marche: {
+          name: materiel.marche?.name || materiel.marcheNom || 'N/A'
+        }
+      };
+      
+      return generateSingleDechargeHTML(enrichedMateriel, agent, index + 1);
+    }).join('');
+    
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Décharges de matériel informatique - ${typeName}${marcheName ? ` - MARCHÉ - ${marcheName}` : ''}</title>
+  <style>
+    @media print { 
+      @page { size: A4; margin: 14mm; }
+      .page-break { page-break-before: always; }
+    }
+    body { font-family: Arial, Helvetica, sans-serif; color: #000; }
+    .decharge-container { margin-bottom: 40px; }
+    .decharge-container:not(:last-child) { page-break-after: always; }
+    .logo-wrap { display:flex; justify-content:center; margin-bottom: 20px; }
+    .logo { height: 120px; width: 300px; }
+    .city { text-align:right; margin-top: 6px; font-size: 13px; }
+    h1 { text-align:center; text-decoration: underline; font-size: 20px; margin: 14px 0 18px; }
+    .intro { text-align:center; font-size: 13px; margin-bottom: 10px; }
+    table {
+      margin: 0 auto;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-top: 10px;
+      margin-bottom: 12px;
+      text-align:center
+    }
+    td {
+      padding: 5px 15px;
+      text-align: center;
+    }
+    td:first-child {
+      font-weight: bold;
+      text-align: right;
+      text-align: center;
+    }
+    td:nth-child(2) {
+      text-align: center;
+      width: 10px;
+    }
+    td:last-child {
+      text-align: left;
+    }
+    .commit { text-align:center; font-size: 13px; line-height: 1.5; margin: 16px 0 28px; }
+    .sigrow { display:flex; justify-content: space-between; margin-top: 14px; }
+    .sigbox { width: 45%; text-align:center; }
+    .dotted { margin-top: 18px; border-top: 1px dotted #333; width: 75%; margin-left:auto; margin-right:auto; }
+    .visa { text-align:center; margin-top: 60px; font-weight:700; }
+  </style>
+</head>
+<body>
+  ${dechargesHTML}
+  <script>
+    window.onload = function() {
+      window.print();
+      
+      // Écouter l'événement d'annulation d'impression
+      window.addEventListener('beforeunload', function() {
+        // Fermer l'onglet si l'utilisateur annule l'impression
+        setTimeout(() => {
+          window.close();
+        }, 100);
+      });
+      
+      // Fermer automatiquement après un délai si l'impression se termine
+      setTimeout(() => {
+        window.close();
+      }, 3500);
+    };
+    
+    // Fermer l'onglet si l'utilisateur appuie sur Échap
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        window.close();
+      }
+    });
+  </script>
+</body>
+</html>`;
+  };
+
+  const generateSingleDechargeHTML = (materiel, agent, dechargeNumber) => {
+    const type = materiel.type?.nom || materiel.typeNom || '';
+    const marque = materiel.marque?.nom || materiel.marqueNom || '';
+    const modele = materiel.modele?.nom || materiel.modeleNom || '';
+    const prettyDate = materiel.dateAffectation ? new Date(materiel.dateAffectation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
+    
+    // Créer le tableau avec 3 lignes (comme dans l'original)
+    const mats = [
+      { type, marque, modele, numeroSerie: materiel.numeroSerie },
+      { type: '', marque: '', modele: '', numeroSerie: '' },
+      { type: '', marque: '', modele: '', numeroSerie: '' },
+    ];
+    const col = (field) => mats.map(m => `<td >${m[field] || ''}</td>`).join('');
+    
+    const logoUrl = `${window.location.origin}/logo-andzoa.png`;
+    
+    return `
+    <div class="decharge-container">
+      <div class="logo-wrap"><img src="${logoUrl}" class="logo" /></div>
+      </br>
+      <div class="city"><span >............... </span> , le ${prettyDate}</div>  </br>
+      </br>
+      <h1>Décharge de matériel informatique</h1>
+      </br>
+
+      <div class="intro">Le(s) sous-signé(s) confirment réception du matériel suivant :</div>
+
+      <table>
+        <tr >
+        <td >Désignation</td>
+        <td >:</td>
+        <td >${col('type')}</td>
+        </tr>
+        <tr ><td >Marque</td><td >:</td><td >${col('marque')}</td></tr>
+        <tr ><td >Modèle</td><td >:</td><td >${col('modele')}</td></tr>
+        <tr ><td >Numéro de Série</td><td >:</td><td >${col('numeroSerie')}</td></tr>
+      </table>
+      <div class="commit">
+        Le(s) sous-signé(s) s'engagent à traiter le matériel avec soin, à veiller à ce qu'il soit déposé en un lieu sûr,
+        et à le restituer dans son intégralité et dans l'état d'origine, sauf dans les cas de forces majeurs.
+      </div>
+      </br>
+      </br>
+      <div class="sigrow">
+        <div class="sigbox">
+          <div>Nom et Prénom du preneur</div>
+          <div style="margin-top:10px;">........................................</div>
+          <div style="margin-top:10px;">Signature</div>
+        </div>
+        
+        </br>
+        <div class="sigbox"><div>SOSI</div></div>
+      </div>
+        </br>
+        </br>
+        </br>
+        </br>
+
+      <div class="visa">VISA DAF</div>
+    </div>`;
+  };
+
 
   const fetchAll = async () => {
     setLoading(true);
@@ -139,16 +463,28 @@ const MarcheList = () => {
       setNewMarche({ name: '', date: '' });
       setSelectedMaterielIds([]);
       setSuccess('Marché créé avec succès');
-      fetchAll();
+      
+      // Recharger les données
+      await fetchAll();
+      
+      // Notifier les autres onglets de la mise à jour
+      const customEventName = 'marches_updated';
+      window.dispatchEvent(new CustomEvent(customEventName));
+      
+      // Mettre à jour le cache localStorage
+      const updatedMarches = await getMarches();
+      const dataWithTimestamp = {
+        data: updatedMarches.data || [],
+        timestamp: Date.now()
+      };
+      localStorage.setItem('marches_cache', JSON.stringify(dataWithTimestamp));
+      
     } catch (e) {
       setError(e.response?.data?.message || "Erreur lors de la création du marché");
     }
     setLoading(false);
   };
 
-  const toggleMateriel = (id) => {
-    setSelectedMaterielIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
 
   const handleDelete = async (id) => {
     const linkedCount = getLinkedCount(id);
@@ -172,28 +508,28 @@ const MarcheList = () => {
     try {
       await deleteMarche(id);
       setSuccess('Marché supprimé');
-      fetchAll();
+      
+      // Recharger les données
+      await fetchAll();
+      
+      // Notifier les autres onglets de la mise à jour
+      const customEventName = 'marches_updated';
+      window.dispatchEvent(new CustomEvent(customEventName));
+      
+      // Mettre à jour le cache localStorage
+      const updatedMarches = await getMarches();
+      const dataWithTimestamp = {
+        data: updatedMarches.data || [],
+        timestamp: Date.now()
+      };
+      localStorage.setItem('marches_cache', JSON.stringify(dataWithTimestamp));
+      
     } catch (e) {
       setError(e.response?.data?.message || "Suppression impossible. Vérifiez qu'aucun matériel n'est lié.");
     }
     setLoading(false);
   };
 
-  // Helper collections for the selection table
-  const unlinkedMateriels = materiels.filter(m => !m.marcheId && !m.marcherId);
-  const allVisibleSelected = unlinkedMateriels.length > 0 && unlinkedMateriels.every(m => selectedMaterielIds.includes(m.id));
-  const someVisibleSelected = unlinkedMateriels.some(m => selectedMaterielIds.includes(m.id));
-  const toggleSelectAllVisible = () => {
-    if (allVisibleSelected) {
-      // Unselect all visible
-      const visibleIds = new Set(unlinkedMateriels.map(m => m.id));
-      setSelectedMaterielIds(prev => prev.filter(id => !visibleIds.has(id)));
-    } else {
-      // Select all visible
-      const addIds = unlinkedMateriels.map(m => m.id);
-      setSelectedMaterielIds(prev => Array.from(new Set([...(prev || []), ...addIds])));
-    }
-  };
 
   return (
     <CardLayout title="Gestion des Marchés" navTabs={navTabs} currentPath={location.pathname}>
@@ -238,7 +574,19 @@ const MarcheList = () => {
                       <TableCell>{m.date}</TableCell>
                       <TableCell>{getLinkedCount(m.id)}</TableCell>
                       <TableCell align="right">
-                        <Button variant="outlined" color="error" size="small" startIcon={<DeleteIcon />} onClick={() => handleDelete(m.id)}>Supprimer</Button>
+                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                          <Button 
+                            variant="outlined" 
+                            color="primary" 
+                            size="small" 
+                            startIcon={<PrintIcon />} 
+                            onClick={() => handlePrintAllDechargesForMarche(m.id, m.name)}
+                            disabled={loading}
+                          >
+                            Décharges
+                          </Button>
+                          <Button variant="outlined" color="error" size="small" startIcon={<DeleteIcon />} onClick={() => handleDelete(m.id)}>Supprimer</Button>
+                        </Box>
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -258,7 +606,17 @@ const MarcheList = () => {
                                         {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                                       </IconButton>
                                       <Box sx={{ fontWeight: 600 }}>{typeName}</Box>
-                                      <Box sx={{ ml: 'auto', color: 'text.secondary' }}>{mats.length}</Box>
+                                      <Box sx={{ ml: 'auto', color: 'text.secondary', mr: 2 }}>{mats.length}</Box>
+                                      <Button
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={<PrintIcon />}
+                                        onClick={() => handlePrintAllDechargesForType(typeName, mats)}
+                                        color="primary"
+                                        sx={{ fontSize: '0.75rem', py: 0.5 }}
+                                      >
+                                        Toutes les décharges {typeName}
+                                      </Button>
                                     </Box>
                                     <Collapse in={open} timeout="auto" unmountOnExit>
                                       <Table size="small">
@@ -268,6 +626,7 @@ const MarcheList = () => {
                                             <TableCell>Marque</TableCell>
                                             <TableCell>Modèle</TableCell>
                                             <TableCell>Bénéficiaire</TableCell>
+                                            <TableCell>Action</TableCell>
                                           </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -280,6 +639,17 @@ const MarcheList = () => {
                                                 const agent = agents.find(a => a.id === mat.agentId);
                                                 return agent ? `${agent.nom} ${agent.username}` : '-';
                                               })()}</TableCell>
+                                              <TableCell>
+                                                <Button
+                                                  variant="outlined"
+                                                  size="small"
+                                                  startIcon={<PrintIcon />}
+                                                  onClick={() => handlePrintDechargeDirect(mat)}
+                                                  color="primary"
+                                                >
+                                                  Décharge Matériel
+                                                </Button>
+                                              </TableCell>
                                             </TableRow>
                                           ))}
                                         </TableBody>
@@ -342,6 +712,14 @@ const MarcheList = () => {
        *   </TableContainer>
        * </Box>
        */}
+      
+      {/* Dialogue d'impression de décharge */}
+      <DechargePrint
+        open={dechargeDialog.open}
+        materiel={dechargeDialog.materiel}
+        agent={dechargeDialog.agent}
+        onClose={handleCloseDecharge}
+      />
     </CardLayout>
   );
 };

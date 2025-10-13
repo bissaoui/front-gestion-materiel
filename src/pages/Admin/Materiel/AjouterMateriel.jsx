@@ -1,32 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { getTypes, getMarques, getModeles, getModelesByMarqueAndType, addMateriel } from '../../../api/materiel';
-import { getMarches } from '../../../api/marche';
-import { Link, useLocation } from 'react-router-dom';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Typography from '@mui/material/Typography';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
-import Box from '@mui/material/Box';
-import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
-import Alert from '@mui/material/Alert';
-import CircularProgress from '@mui/material/CircularProgress';
-import MenuItem from '@mui/material/MenuItem';
+import { addMateriel } from '../../../api/materiel';
+import { useLocation } from 'react-router-dom';
 import MaterielForm from '../../../components/MaterielForm';
 import CardLayout from '../../../components/CardLayout';
 import navTabs from '../../../components/adminNavTabs';
-import { materielColumns } from '../../../components/adminTableColumns';
+import { useMarchesSync, useTypesSync, useMarquesSync, useModelesSync } from '../../../hooks/useDataSync';
 
 
 const AjouterMateriel = () => {
-  const [types, setTypes] = useState([]);
   const [selectedType, setSelectedType] = useState('');
-  const [marques, setMarques] = useState([]);
   const [selectedMarque, setSelectedMarque] = useState('');
-  const [modeles, setModeles] = useState([]);
   const [selectedModele, setSelectedModele] = useState('');
-  const [marches, setMarches] = useState([]);
   const [selectedMarche, setSelectedMarche] = useState('');
   const [numeroSerie, setNumeroSerie] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,44 +18,26 @@ const AjouterMateriel = () => {
   const [success, setSuccess] = useState('');
   const location = useLocation();
 
-  useEffect(() => {
-    getTypes()
-      .then(res => setTypes(res.data))
-      .catch(() => setTypes([]));
-    getMarches()
-      .then(res => setMarches(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setMarches([]));
-  }, []);
+  // Utilisation des hooks de synchronisation
+  const { data: types, loading: typesLoading, error: typesError } = useTypesSync();
+  const { data: marches, loading: marchesLoading, error: marchesError } = useMarchesSync();
+  const { data: marques, loading: marquesLoading, error: marquesError } = useMarquesSync(selectedType);
+  const { data: modeles, loading: modelesLoading, error: modelesError } = useModelesSync(selectedMarque, selectedType);
 
+  // Réinitialiser les sélections quand le type change
   useEffect(() => {
-    if (selectedType) {
-      getMarques(selectedType)
-        .then(res => setMarques(Array.isArray(res.data) ? res.data : []))
-        .catch(() => setMarques([]));
-    } else {
-      setMarques([]);
+    if (!selectedType) {
       setSelectedMarque('');
     }
-    setModeles([]);
     setSelectedModele('');
   }, [selectedType]);
 
+  // Réinitialiser les modèles quand la marque change
   useEffect(() => {
-    if (selectedMarque && selectedType) {
-      // Charger les modèles filtrés par marque ET type sélectionnés
-      getModelesByMarqueAndType(selectedMarque, selectedType)
-        .then(res => setModeles(Array.isArray(res.data) ? res.data : []))
-        .catch(() => setModeles([]));
-    } else if (selectedMarque) {
-      // Fallback: si pour une raison quelconque le type n'est pas encore sélectionné
-      getModeles(selectedMarque)
-        .then(res => setModeles(Array.isArray(res.data) ? res.data : []))
-        .catch(() => setModeles([]));
-    } else {
-      setModeles([]);
+    if (!selectedMarque) {
       setSelectedModele('');
     }
-  }, [selectedMarque, selectedType]);
+  }, [selectedMarque]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -103,6 +69,10 @@ const AjouterMateriel = () => {
     setLoading(false);
   };
 
+  // Afficher les erreurs de chargement des données
+  const displayError = error || typesError || marchesError || marquesError || modelesError;
+  const isLoading = loading || typesLoading || marchesLoading || marquesLoading || modelesLoading;
+
   return (
     <CardLayout
       title="Ajouter un Matériel"
@@ -124,8 +94,8 @@ const AjouterMateriel = () => {
         marques={marques}
         modeles={modeles}
         marches={marches}
-        loading={loading}
-        error={error}
+        loading={isLoading}
+        error={displayError}
         success={success}
         onSubmit={handleSubmit}
         submitLabel="Ajouter le matériel"

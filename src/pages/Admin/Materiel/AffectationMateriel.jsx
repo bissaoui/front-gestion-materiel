@@ -11,14 +11,12 @@ import navTabs from '../../../components/adminNavTabs';
 import {
   TextField,
 } from '@mui/material';
+import { useTypesSync, useMarquesSync, useModelesSync } from '../../../hooks/useDataSync';
 
 const AffectationMateriel = () => {
   const [agents, setAgents] = useState([]);
-  const [types, setTypes] = useState([]);
   const today = new Date().toISOString().slice(0, 10);
 
-  const [marques, setMarques] = useState([]);
-  const [modeles, setModeles] = useState([]);
   const [materiels, setMateriels] = useState([]);
   const [selectedAgent, setSelectedAgent] = useState('');
   const [selectedType, setSelectedType] = useState('');
@@ -31,39 +29,35 @@ const AffectationMateriel = () => {
   const [error, setError] = useState('');
   const location = useLocation();
 
+  // Utilisation des hooks de synchronisation
+  const { data: types, loading: typesLoading, error: typesError } = useTypesSync();
+  const { data: marques, loading: marquesLoading, error: marquesError } = useMarquesSync(selectedType);
+  const { data: modeles, loading: modelesLoading, error: modelesError } = useModelesSync(selectedMarque, selectedType);
+
+  // Gestion des erreurs et loading
+  const displayError = error || typesError || marquesError || modelesError;
+  const isLoading = loading || typesLoading || marquesLoading || modelesLoading;
+
   useEffect(() => {
     // Charger la liste des agents
     axios.get(`${API_URL}/api/agents`, { headers: { Authorization: `Bearer ${getToken()}` } })
       .then(res => setAgents(res.data))
       .catch(() => setError("Erreur lors du chargement des agents"));
-    // Charger tous les types
-    axios.get(`${API_URL}/api/types`, { headers: { Authorization: `Bearer ${getToken()}` } })
-      .then(res => setTypes(res.data))
-      .catch(() => setTypes([]));
   }, []);
 
+  // Réinitialiser les sélections quand le type change
   useEffect(() => {
-    if (selectedType) {
-      axios.get(`${API_URL}/api/marques/by-type/${selectedType}`, { headers: { Authorization: `Bearer ${getToken()}` } })
-        .then(res => setMarques(Array.isArray(res.data) ? res.data : []))
-        .catch(() => setMarques([]));
-    } else {
-      setMarques([]);
+    if (!selectedType) {
       setSelectedMarque('');
     }
-    setModeles([]);
     setSelectedModele('');
     setMateriels([]);
     setSelectedMateriel('');
   }, [selectedType]);
 
+  // Réinitialiser les modèles et matériels quand la marque change
   useEffect(() => {
-    if (selectedMarque) {
-      axios.get(`${API_URL}/api/modeles/by-marque/${selectedMarque}`, { headers: { Authorization: `Bearer ${getToken()}` } })
-        .then(res => setModeles(Array.isArray(res.data) ? res.data : []))
-        .catch(() => setModeles([]));
-    } else {
-      setModeles([]);
+    if (!selectedMarque) {
       setSelectedModele('');
     }
     setMateriels([]);
@@ -123,7 +117,7 @@ const AffectationMateriel = () => {
     >
       <Form onSubmit={handleSubmit} className="p-4 border rounded shadow-sm bg-white">
         {success && <Alert variant="success">{success}</Alert>}
-        {error && <Alert variant="danger">{error}</Alert>}
+        {displayError && <Alert variant="danger">{displayError}</Alert>}
         <Row className="mb-3">
           <Col md={6}>
             <Form.Group>
@@ -225,8 +219,8 @@ const AffectationMateriel = () => {
           </Col>
         </Row>
 
-        <Button type="submit" variant="primary" className="w-100" disabled={loading}>
-          {loading ? <Spinner animation="border" size="sm" /> : "Affecter"}
+        <Button type="submit" variant="primary" className="w-100" disabled={isLoading}>
+          {isLoading ? <Spinner animation="border" size="sm" /> : "Affecter"}
         </Button>
       </Form>
     </CardLayout>
