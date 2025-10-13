@@ -1,29 +1,34 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_URL } from '../../../api/auth';
 import { getToken } from '../../../utils/storage';
-import { Container, Form, Button, Alert, Row, Col, Spinner, Nav } from 'react-bootstrap';
-import { Link, useLocation } from 'react-router-dom';
+import { Form, Button, Alert, Row, Col, Spinner } from 'react-bootstrap';
+import { useLocation } from 'react-router-dom';
 import { Typeahead } from 'react-bootstrap-typeahead';
 import 'react-bootstrap-typeahead/css/Typeahead.css';
 import CardLayout from '../../../components/CardLayout';
 import navTabs from '../../../components/adminNavTabs';
+import {
+  TextField,
+} from '@mui/material';
 
 const AffectationMateriel = () => {
   const [agents, setAgents] = useState([]);
   const [types, setTypes] = useState([]);
+  const today = new Date().toISOString().slice(0, 10);
+
   const [marques, setMarques] = useState([]);
   const [modeles, setModeles] = useState([]);
   const [materiels, setMateriels] = useState([]);
   const [selectedAgent, setSelectedAgent] = useState('');
   const [selectedType, setSelectedType] = useState('');
   const [selectedMarque, setSelectedMarque] = useState('');
+  const [dateAffec, setDateAffec] = useState({ name: '', date: today });
   const [selectedModele, setSelectedModele] = useState('');
   const [selectedMateriel, setSelectedMateriel] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
-  const [agentQuery, setAgentQuery] = useState([]);
   const location = useLocation();
 
   useEffect(() => {
@@ -94,7 +99,7 @@ const AffectationMateriel = () => {
     try {
       await axios.put(
         `${API_URL}/api/materiels/${selectedMateriel}/affecter/${selectedAgent}`,
-        {},
+  { dateAffectation: `${dateAffec.date}T00:00:00` },
         { headers: { Authorization: `Bearer ${getToken()}` } }
       );
       setSuccess('Affectation réussie !');
@@ -192,6 +197,34 @@ const AffectationMateriel = () => {
             </Form.Group>
           </Col>
         </Row>
+        <Row className="mb-3">
+          <Col md={12}>
+            <Form.Group>
+              <Form.Label>Date d'affectation</Form.Label>
+              <div style={{ marginTop: "5px" }}>
+                <TextField
+                  type="date"
+                  size="small"
+                  value={dateAffec.date}
+                  onChange={e => setDateAffec({ ...dateAffec, date: e.target.value })}
+                  required
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    width: "100%",
+                    "& .MuiInputBase-root": {
+                      borderRadius: "0.375rem", // match Bootstrap form style
+                    },
+                    "& input": {
+                      padding: "10px 12px",
+                      fontSize: "0.95rem",
+                    },
+                  }}
+                />
+              </div>
+            </Form.Group>
+          </Col>
+        </Row>
+
         <Button type="submit" variant="primary" className="w-100" disabled={loading}>
           {loading ? <Spinner animation="border" size="sm" /> : "Affecter"}
         </Button>
