@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getMarches, addMarche, deleteMarche } from '../../../api/marche';
 import { getMateriels, updateMateriel, getTypes, getMarques, getModeles } from '../../../api/materiel';
 import { getAgents } from '../../../api/agents';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import CardLayout from '../../../components/CardLayout';
 import navTabs from '../../../components/adminNavTabs';
 import Box from '@mui/material/Box';
@@ -21,13 +21,16 @@ import TablePagination from '@mui/material/TablePagination';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PrintIcon from '@mui/icons-material/Print';
+import DownloadIcon from '@mui/icons-material/Download';
 import Collapse from '@mui/material/Collapse';
 import IconButton from '@mui/material/IconButton';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import DechargePrint from '../../../components/DechargePrint';
+import ExcelJS from 'exceljs';
 
 const MarcheList = () => {
+  const navigate = useNavigate();
   const [marches, setMarches] = useState([]);
   const [materiels, setMateriels] = useState([]);
   const [types, setTypes] = useState([]);
@@ -237,6 +240,371 @@ const MarcheList = () => {
     } else {
       console.error('Impossible d\'ouvrir la fenêtre d\'impression');
       setError('Impossible de générer le PDF');
+    }
+  };
+
+  const generateAssignmentProposalExcel = async (marcheName, materiels) => {
+    // Fonction pour charger l'image en base64
+    const loadImageAsBase64 = async (imageUrl) => {
+      try {
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+          throw new Error('Image non trouvée');
+        }
+        const blob = await response.blob();
+        
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64 = reader.result.split(',')[1]; // Enlever le préfixe data:image/png;base64,
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } catch (error) {
+        console.error('Erreur de chargement de l\'image:', error);
+        return null;
+      }
+    };
+    // Préparer les données avec toutes les informations
+    const data = materiels.map(materiel => {
+      const type = materiel.type?.nom || materiel.typeNom || (types.find(t => t.id === materiel.typeMaterielId)?.nom) || 'N/A';
+      const marque = materiel.marque?.nom || materiel.marqueNom || (marques.find(mk => mk.id === materiel.marqueId)?.nom) || 'N/A';
+      const modele = materiel.modele?.nom || materiel.modeleNom || (modeles.find(md => md.id === materiel.modeleId)?.nom) || 'N/A';
+      const agent = agents.find(a => a.id === materiel.agentId);
+      const agentName = agent ? `${agent.nom} ${agent.username}` : 'SOSI';
+      const dateAffectation = agent ? (materiel.dateAffectation ? new Date(materiel.dateAffectation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')) : '-';
+      
+      return {
+        type,
+        marque,
+        modele,
+        date: dateAffectation,
+        agent: agentName,
+        numeroSerie: materiel.numeroSerie || '-'
+      };
+    });
+
+    // Trier par type, puis par marque, puis par modèle
+    data.sort((a, b) => {
+      if (a.type !== b.type) return a.type.localeCompare(b.type);
+      if (a.marque !== b.marque) return a.marque.localeCompare(b.marque);
+      if (a.modele !== b.modele) return a.modele.localeCompare(b.modele);
+      return 0;
+    });
+
+    // Créer un nouveau workbook avec ExcelJS
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Affectation");
+
+    // Ajouter l'en-tête avec logo et informations
+ 
+
+    // Ajouter le logo ANDZOA (vraie image)
+    try {
+      const logoBase64 = await loadImageAsBase64('/logoA.jpg');
+      
+      if (logoBase64) {
+        const logoId = workbook.addImage({
+          base64: logoBase64,
+          extension: 'jpg',
+        });
+        
+        worksheet.addImage(logoId, {
+          tl: { col: 3, row:  0.3}, // Position top-left (colonne A, ligne 3)
+          ext: { width: 350, height: 100 } // Taille du logo
+        });
+      } else {
+        // Fallback: utiliser du texte si l'image ne charge pas
+        worksheet.mergeCells('A3:F3');
+        worksheet.getCell('A3').value = '🏢 ANDZOA';
+        worksheet.getCell('A3').font = { 
+          size: 24, 
+          bold: true, 
+          color: { argb: 'FF008000' },
+          name: 'Arial'
+        };
+        worksheet.getCell('A3').alignment = { horizontal: 'center', vertical: 'middle' };
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout du logo:', error);
+      // Fallback: utiliser du texte
+      worksheet.mergeCells('A3:F3');
+      worksheet.getCell('A3').value = '🏢 ANDZOA';
+      worksheet.getCell('A3').font = { 
+        size: 24, 
+        bold: true, 
+        color: { argb: 'FF008000' },
+        name: 'Arial'
+      };
+      worksheet.getCell('A3').alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+
+
+    worksheet.mergeCells('C7:F7');
+    worksheet.getCell('C7').value = `Objet : Acquisition de matériel de bureau`;
+    worksheet.getCell('C7').font =  { size: 18, bold: true , name: "Arial Narrow"};
+    worksheet.getCell('C7').alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells('C8:F8');
+    worksheet.getCell('C8').value = `Marché : ${marcheName}`;
+    worksheet.getCell('C8').font = { size: 18, bold: true , name: "Arial Narrow"};
+    worksheet.getCell('C8').alignment = { horizontal: 'center'  };
+
+    // Fusionner "Affectation" sur 4 lignes (9, 10, 11, 12)
+    worksheet.mergeCells('C9:F12');
+    worksheet.getCell('C9').value = 'Affectation';
+    worksheet.getCell('C9').font = { size: 24, bold: true, name: "Agency FB" };
+    worksheet.getCell('C9').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Ajouter l'en-tête du tableau (ligne 13) - de B à G
+    worksheet.getRow(13).values = [
+      '', // Colonne A vide
+      'N° de prix', // Colonne B
+      'Désignation', // Colonne C
+      'Marque', // Colonne D
+      'Modèle', // Colonne E
+      'N° de série', // Colonne F
+      'Affectation' // Colonne G
+    ];
+
+    // Ajouter les filtres automatiques au tableau complet
+    // La plage sera mise à jour après l'ajout des données
+    const lastRow = 13 + data.length;
+    worksheet.autoFilter = {
+      from: 'B13',
+      to: `G${lastRow}`
+    };
+
+    // Style de l'en-tête du tableau (ligne 13) - colonnes B à G
+    const headerRow = worksheet.getRow(13);
+    headerRow.eachCell((cell, colNumber) => {
+      // Appliquer le style orange aux colonnes B à G
+      if (colNumber >= 2 && colNumber <= 7) {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'E26B0A' } // Orange
+        };
+        cell.font = {
+          color: { argb: 'FFFFFFFF' }, // Blanc
+          bold: true,
+          name: "Arial Narrow",
+          size: 14
+        };
+        cell.alignment = {
+          horizontal: 'center',
+          vertical: 'middle',
+          wrapText: true
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+      }
+
+    });
+
+    // Définir les colonnes du tableau
+    worksheet.columns = [
+      { header: '', key: 'empty', width: 7 }, // Colonne A vide
+      { header: '', key: 'numeroPrix', width: 7 }, // Colonne B
+      { header: '', key: 'designation', width: 71 }, // Colonne C
+      { header: '', key: 'marque', width: 24 }, // Colonne D
+      { header: '', key: 'modele', width: 43 }, // Colonne E
+      { header: '', key: 'numeroSerie', width: 39 }, // Colonne F
+      { header: '', key: 'affectation', width: 29 } // Colonne G
+    ];
+
+    // Ajouter les données (commence à la ligne 14, colonne B)
+    let prixCounter = 1;
+    let currentTypeForPrix = '';
+    
+    data.forEach((item, index) => {
+      const rowNumber = 14 + index;
+      
+      // Incrémenter le numéro de prix seulement quand le type change
+      if (item.type !== currentTypeForPrix) {
+        if (currentTypeForPrix !== '') {
+          prixCounter++;
+        }
+        currentTypeForPrix = item.type;
+      }
+      
+      worksheet.getRow(rowNumber).values = [
+        '', // Colonne A vide
+        prixCounter, // Colonne B - N° de prix (séquentiel par type)
+        item.type, // Colonne C
+        item.marque, // Colonne D
+        item.modele, // Colonne E
+        item.numeroSerie, // Colonne F
+        item.agent // Colonne G
+      ];
+    });
+
+    // Style des cellules de données
+    for (let i = 0; i < data.length; i++) {
+      const rowNumber = 14 + i;
+      const row = worksheet.getRow(rowNumber);
+      
+      // Ajuster la hauteur des lignes à 30 pixels
+      row.height = 30;
+      row.eachCell((cell,colNumber) => {
+        // Style pour les colonnes B à G
+        if (colNumber >= 2 && colNumber <= 7) {
+          if (colNumber === 3) {
+            // Colonne C (Désignation) - Antique Olive Compact
+            cell.alignment = {
+              horizontal: 'center',
+              vertical: 'middle'
+            };
+            cell.font = {
+              size: 18,
+              name: "Antique Olive Compact",
+              bold: false
+            };
+          } else if (colNumber === 4 || colNumber === 5) {
+            // Colonnes D (Marque) et E (Modèle) - Aptos ExtraBold
+            cell.alignment = {
+              horizontal: 'center',
+              vertical: 'middle'
+            };
+            cell.font = {
+              size: 18,
+              name: "Aptos ExtraBold"
+            };
+          } else if (colNumber === 6) {
+            // Colonne F (N° de série) - Times New Roman
+            cell.alignment = {
+              horizontal: 'left',
+              vertical: 'bottom'
+            };
+            cell.font = {
+              size: 12,
+              bold: true,
+              name: "Times New Roman",
+              color: { argb: 'FF1F497D' }
+            };
+          } else if (colNumber === 7) {
+            // Colonne G (Affectation) - Calibri
+            cell.alignment = {
+              horizontal: 'left',
+              vertical: 'bottom'
+            };
+            cell.font = {
+              size: 11,
+              name: "Calibri"
+            };
+          } else {
+            // Autres colonnes (B)
+            cell.alignment = {
+              horizontal: 'center',
+              vertical: 'middle'
+            };
+            cell.font = {
+              size: 18,
+              name: "Arial Narrow"
+            };
+          }
+          
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        }
+      });
+    }
+
+    // Fusionner les cellules hiérarchiquement (de B à F)
+    let currentType = '';
+    let currentMarque = '';
+    let currentModele = '';
+    let typeStart = 14;
+    let marqueStart = 14;
+    let modeleStart = 14;
+
+    for (let i = 0; i < data.length; i++) {
+      const currentRow = 14 + i;
+      const item = data[i];
+
+      // Vérifier changement de Type (Désignation) - Colonnes B et C
+      if (item.type !== currentType) {
+        if (currentType !== '' && currentRow - typeStart > 1) {
+          worksheet.mergeCells(`B${typeStart}:B${currentRow - 1}`); // N° de prix
+          worksheet.mergeCells(`C${typeStart}:C${currentRow - 1}`); // Désignation
+        }
+        currentType = item.type;
+        typeStart = currentRow;
+      }
+
+      // Vérifier changement de Marque - Colonne D
+      if (item.marque !== currentMarque) {
+        if (currentMarque !== '' && currentRow - marqueStart > 1) {
+          worksheet.mergeCells(`D${marqueStart}:D${currentRow - 1}`);
+        }
+        currentMarque = item.marque;
+        marqueStart = currentRow;
+      }
+
+      // Vérifier changement de Modèle - Colonne E
+      if (item.modele !== currentModele) {
+        if (currentModele !== '' && currentRow - modeleStart > 1) {
+          worksheet.mergeCells(`E${modeleStart}:E${currentRow - 1}`);
+        }
+        currentModele = item.modele;
+        modeleStart = currentRow;
+      }
+    }
+
+    // Fusionner les derniers groupes
+    if (currentType !== '' && data.length - typeStart + 14 > 1) {
+      worksheet.mergeCells(`B${typeStart}:B${data.length + 13}`); // N° de prix
+      worksheet.mergeCells(`C${typeStart}:C${data.length + 13}`); // Désignation
+    }
+    if (currentMarque !== '' && data.length - marqueStart + 14 > 1) {
+      worksheet.mergeCells(`D${marqueStart}:D${data.length + 13}`);
+    }
+    if (currentModele !== '' && data.length - modeleStart + 14 > 1) {
+      worksheet.mergeCells(`E${modeleStart}:E${data.length + 13}`);
+    }
+
+    return workbook;
+  };
+
+  const handleDownloadAssignmentProposal = async (marcheId, marcheName) => {
+    const marcheMateriels = getLinkedMateriels(marcheId);
+    
+    if (marcheMateriels.length === 0) {
+      setError('Aucun matériel trouvé pour ce marché');
+      return;
+    }
+
+    try {
+      const workbook = await generateAssignmentProposalExcel(marcheName, marcheMateriels);
+      
+      // Générer le nom de fichier avec la date
+      const date = new Date().toISOString().slice(0, 10);
+      const fileName = `Proposition_affectation_${marcheName.replace(/[^a-zA-Z0-9]/g, '_')}_${date}.xlsx`;
+      
+      // Générer le buffer et télécharger avec ExcelJS
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      setSuccess(`Fichier Excel téléchargé : ${fileName}`);
+    } catch (error) {
+      console.error('Erreur lors de la génération du fichier Excel:', error);
+      setError('Impossible de générer le fichier Excel');
     }
   };
 
@@ -530,6 +898,14 @@ const MarcheList = () => {
     setLoading(false);
   };
 
+  // Fonction pour gérer le clic sur un matériel non affecté
+  const handleMaterielClick = (materiel) => {
+    // Vérifier si le matériel n'est pas affecté (pas d'agentId)
+    if (!materiel.agentId) {
+      // Rediriger vers la page d'affectation avec l'ID du matériel
+      navigate(`/affectations?materielId=${materiel.id}`);
+    }
+  };
 
   return (
     <CardLayout title="Gestion des Marchés" navTabs={navTabs} currentPath={location.pathname}>
@@ -575,6 +951,16 @@ const MarcheList = () => {
                       <TableCell>{getLinkedCount(m.id)}</TableCell>
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                          <Button 
+                            variant="outlined" 
+                            color="success" 
+                            size="small" 
+                            startIcon={<DownloadIcon />} 
+                            onClick={() => handleDownloadAssignmentProposal(m.id, m.name)}
+                            disabled={loading}
+                          >
+                            Proposition
+                          </Button>
                           <Button 
                             variant="outlined" 
                             color="primary" 
@@ -635,10 +1021,20 @@ const MarcheList = () => {
                                               <TableCell>{mat.numeroSerie}</TableCell>
                                               <TableCell>{mat.marque?.nom || mat.marqueNom || (marques.find(mk => mk.id === mat.marqueId)?.nom)}</TableCell>
                                               <TableCell>{mat.modele?.nom || mat.modeleNom || (modeles.find(md => md.id === mat.modeleId)?.nom)}</TableCell>
-                                              <TableCell>{(() => {
-                                                const agent = agents.find(a => a.id === mat.agentId);
-                                                return agent ? `${agent.nom} ${agent.username}` : '-';
-                                              })()}</TableCell>
+                                              <TableCell 
+                                                onClick={() => handleMaterielClick(mat)}
+                                                style={{ 
+                                                  cursor: !mat.agentId ? 'pointer' : 'default',
+                                                  color: !mat.agentId ? '#1976d2' : 'inherit',
+                                                  textDecoration: !mat.agentId ? 'underline' : 'none'
+                                                }}
+                                                title={!mat.agentId ? 'Cliquer pour affecter ce matériel' : ''}
+                                              >
+                                                {(() => {
+                                                  const agent = agents.find(a => a.id === mat.agentId);
+                                                  return agent ? `${agent.nom} ${agent.username}` : '-';
+                                                })()}
+                                              </TableCell>
                                               <TableCell>
                                                 <Button
                                                   variant="outlined"

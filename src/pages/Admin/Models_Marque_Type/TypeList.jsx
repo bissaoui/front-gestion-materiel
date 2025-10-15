@@ -1,11 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getTypes, addType, deleteType } from '../../../api/materiel';
-import { Link, useLocation } from 'react-router-dom';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Typography from '@mui/material/Typography';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
+import { useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
@@ -101,13 +96,6 @@ const TypeList = () => {
     );
   };
 
-  const handleSelectAll = () => {
-    if (selectedTypes.length === types.length) {
-      setSelectedTypes([]);
-    } else {
-      setSelectedTypes(types.map(t => t.id));
-    }
-  };
 
   const handleDeleteSelected = async () => {
     if (selectedTypes.length === 0) return;

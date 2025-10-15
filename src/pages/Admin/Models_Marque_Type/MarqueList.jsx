@@ -1,11 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getTypes, getMarques, addMarque, deleteMarque } from '../../../api/materiel';
-import { Link, useLocation } from 'react-router-dom';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Typography from '@mui/material/Typography';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
+import { useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
@@ -20,7 +15,6 @@ import Checkbox from '@mui/material/Checkbox';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import TablePagination from '@mui/material/TablePagination';
-import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import MenuItem from '@mui/material/MenuItem';
 import CardLayout from '../../../components/CardLayout';
@@ -44,9 +38,6 @@ const MarqueList = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedTypeFilter, setSelectedTypeFilter] = useState('');
-  const [addLoading, setAddLoading] = useState(false);
-  const [addError, setAddError] = useState('');
-  const [addSuccess, setAddSuccess] = useState('');
   const location = useLocation();
 
   useEffect(() => {

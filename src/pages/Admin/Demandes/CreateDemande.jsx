@@ -83,15 +83,6 @@ const CreateDemande = () => {
     });
   };
 
-  const handleArticleChange = (index, value) => {
-    const article = articles.find(a => a.id === value);
-    if (article && article.qte === 0) {
-      setRuptureArticle(article);
-      setOpenStockDialog(true);
-      return;
-    }
-    updateLigne(index, "articleId", value);
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();

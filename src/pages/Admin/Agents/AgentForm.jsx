@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TextField, Button, MenuItem, Grid, Alert, CircularProgress, Tooltip, Typography } from '@mui/material';
-import { createAgent, updateAgent, getDirections, getDepartements, getServices, getDepartementsByDirection, getServicesByDepartement } from '../../../api/agents';
+import { createAgent, updateAgent, getDirections, getDepartements, getServices } from '../../../api/agents';
 
 const roles = ['ADMIN', 'USER'];
 
@@ -21,8 +21,6 @@ const AgentForm = ({ agent, onSuccess, onCancel }) => {
   const [departements, setDepartements] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [loadingDepartements, setLoadingDepartements] = useState(false);
-  const [loadingServices, setLoadingServices] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -106,63 +104,7 @@ const AgentForm = ({ agent, onSuccess, onCancel }) => {
     setSuccess('');
   };
 
-  // Fonction pour charger les départements d'une direction
-  const loadDepartementsByDirection = async (directionId) => {
-    if (!directionId) {
-      setDepartements([]);
-      setServices([]);
-      return;
-    }
 
-    try {
-      setLoadingDepartements(true);
-      const deptRes = await getDepartementsByDirection(directionId);
-      let deptData = deptRes.data;
-      
-      // Parser si nécessaire
-      if (typeof deptData === 'string') {
-        try { deptData = JSON.parse(deptData); } catch (e) { deptData = []; }
-      }
-      
-      setDepartements(Array.isArray(deptData) ? deptData : []);
-      // Réinitialiser les services quand on change de direction
-      setServices([]);
-      setForm(prev => ({ ...prev, departement: '', service: '' }));
-    } catch (error) {
-      console.error('Erreur lors du chargement des départements:', error);
-      setDepartements([]);
-    } finally {
-      setLoadingDepartements(false);
-    }
-  };
-
-  // Fonction pour charger les services d'un département
-  const loadServicesByDepartement = async (departementId) => {
-    if (!departementId) {
-      setServices([]);
-      return;
-    }
-
-    try {
-      setLoadingServices(true);
-      const servRes = await getServicesByDepartement(departementId);
-      let servData = servRes.data;
-      
-      // Parser si nécessaire
-      if (typeof servData === 'string') {
-        try { servData = JSON.parse(servData); } catch (e) { servData = []; }
-      }
-      
-      setServices(Array.isArray(servData) ? servData : []);
-      // Réinitialiser le service quand on change de département
-      setForm(prev => ({ ...prev, service: '' }));
-    } catch (error) {
-      console.error('Erreur lors du chargement des services:', error);
-      setServices([]);
-    } finally {
-      setLoadingServices(false);
-    }
-  };
 
   // Filtrage côté frontend (temporaire en attendant les endpoints backend)
   const filteredDepartements = form.direction 
@@ -254,7 +196,7 @@ const AgentForm = ({ agent, onSuccess, onCancel }) => {
         </Grid>
         <Grid item xs={12} sm={6}>
           <TextField 
-            label="Nom" 
+            label="Prenom" 
             name="nom" 
             value={form.nom} 
             onChange={handleChange} 
@@ -265,7 +207,7 @@ const AgentForm = ({ agent, onSuccess, onCancel }) => {
         </Grid>
         <Grid item xs={12} sm={6}>
           <TextField 
-            label="Username" 
+            label="NOM" 
             name="username" 
             value={form.username} 
             onChange={handleChange} 

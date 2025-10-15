@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { getToken, setToken, removeToken } from "../utils/storage";
 import { useNavigate } from "react-router-dom";
 import {jwtDecode} from "jwt-decode"; // Ensure correct import
@@ -33,15 +33,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const logout = useCallback(() => {
+    console.log("🚪 Logging out...");
+    removeToken();
+    setIsLoggedIn(false);
+    setUser(null);
+    // ✅ Ensure navigation happens **after** state updates
+    setTimeout(() => {
+      navigate("/login", { replace: true });
+    }, 100);
+  }, [navigate]);
+
   // ✅ Auto logout if token is invalid
-  const checkTokenValidity = () => {
+  const checkTokenValidity = useCallback(() => {
     if (!isTokenValid()) {
       console.warn("⚠️ Token expired! Logging out...");
       logout();
     }
-  };
+  }, [logout]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     checkTokenValidity(); // ✅ Check on mount
 
@@ -62,7 +72,7 @@ export const AuthProvider = ({ children }) => {
     const interval = setInterval(checkTokenValidity, 30000);
 
     return () => clearInterval(interval); // Cleanup
-  }, []);
+  }, [checkTokenValidity]);
 
   const login = (token) => {
     console.log("✅ User logged in!");
@@ -77,16 +87,6 @@ export const AuthProvider = ({ children }) => {
     navigate("/profile", { replace: true });
   };
 
-  const logout = () => {
-    console.log("🚪 Logging out...");
-    removeToken();
-    setIsLoggedIn(false);
-    setUser(null);
-    // ✅ Ensure navigation happens **after** state updates
-    setTimeout(() => {
-      navigate("/login", { replace: true });
-    }, 100);
-  };
 
   return (
     <AuthContext.Provider value={{ isLoggedIn, login, logout, user }}>

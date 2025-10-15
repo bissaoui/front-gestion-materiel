@@ -147,8 +147,8 @@ const AgentsList = () => {
             <TableHead>
               <TableRow>
                 <TableCell>CIN</TableCell>
+                <TableCell>Prenom</TableCell>
                 <TableCell>Nom</TableCell>
-                <TableCell>Username</TableCell>
                 <TableCell>Poste</TableCell>
                 <TableCell>Rôle</TableCell>
                 <TableCell>Direction</TableCell>

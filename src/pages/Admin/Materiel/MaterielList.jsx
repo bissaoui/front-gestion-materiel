@@ -1,11 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { getMateriels, getTypes, getMarques, getModeles, deleteMateriel, getModelesByMarqueAndType, addMateriel, updateMateriel } from '../../../api/materiel';
-import { Link, useLocation } from 'react-router-dom';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Typography from '@mui/material/Typography';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
+import { getMateriels, getTypes, getMarques, getModeles, deleteMateriel, getModelesByMarqueAndType, updateMateriel } from '../../../api/materiel';
+import { useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
@@ -44,7 +39,6 @@ const MaterielList = () => {
   const [selectedType, setSelectedType] = useState('');
   const [selectedMarque, setSelectedMarque] = useState('');
   const [selectedModele, setSelectedModele] = useState('');
-  const [numeroSerie, setNumeroSerie] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -55,7 +49,6 @@ const MaterielList = () => {
   const [allModeles, setAllModeles] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
-  const [editError, setEditError] = useState('');
   const [editErrors, setEditErrors] = useState({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toDeleteId, setToDeleteId] = useState(null);
@@ -149,37 +142,6 @@ const MaterielList = () => {
     }
   };
 
-  // Fonction d’ajout de matériel
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    if (!numeroSerie.trim() || !selectedType || !selectedMarque || !selectedModele) {
-      setError('Tous les champs sont obligatoires.');
-      return;
-    }
-    setLoading(true);
-    const body = {
-      numeroSerie,
-      typeMaterielId: selectedType,
-      marqueId: selectedMarque,
-      modeleId: selectedModele
-    };
-    try {
-      await addMateriel(body);
-      setSuccess('Matériel ajouté avec succès !');
-      setNumeroSerie('');
-      setSelectedType('');
-      setSelectedMarque('');
-      setSelectedModele('');
-      // Rafraîchir la liste
-      const res = await getMateriels();
-      setMateriels(Array.isArray(res.data) ? res.data : []);
-    } catch (e) {
-      setError(e.response?.data?.message || "Erreur lors de l'ajout du matériel.");
-    }
-    setLoading(false);
-  };
 
   const handleUpdateNumeroSerie = async (id) => {
     if (!editValue.trim()) return;

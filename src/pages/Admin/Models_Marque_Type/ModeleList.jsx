@@ -37,7 +37,6 @@ const ModeleList = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState("");
-  const [sortConfig, setSortConfig] = useState({ key: "id", direction: "asc" });
   const [materiels, setMateriels] = useState([]);
   const location = useLocation();
 
@@ -183,34 +182,11 @@ const ModeleList = () => {
   const filteredModeles = modeles.filter(modele =>
     modele.nom.toLowerCase().includes(search.toLowerCase())
   );
-  // Tri
-  const sortedModeles = [...filteredModeles].sort((a, b) => {
-    let aValue, bValue;
-    switch (sortConfig.key) {
-      case "type":
-        aValue = types.find(t => t.id === a.typeMaterielId)?.nom || "";
-        bValue = types.find(t => t.id === b.typeMaterielId)?.nom || "";
-        break;
-      case "marque":
-        aValue = marques.find(m => m.id === a.marqueId)?.nom || "";
-        bValue = marques.find(m => m.id === b.marqueId)?.nom || "";
-        break;
-      case "nom":
-        aValue = a.nom;
-        bValue = b.nom;
-        break;
-      default:
-        aValue = a[sortConfig.key];
-        bValue = b[sortConfig.key];
-    }
-    if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-    if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-    return 0;
-  });
-  // Pagination (à garder après le tri et le filtrage)
+  
+  // Pagination
   const indexOfLastItem = (page + 1) * rowsPerPage;
   const indexOfFirstItem = indexOfLastItem - rowsPerPage;
-  const currentItems = sortedModeles.slice(indexOfFirstItem, indexOfLastItem);
+  const currentItems = filteredModeles.slice(indexOfFirstItem, indexOfLastItem);
 
   console.log('marques:', marques);
   console.log('modeles:', modeles);
@@ -363,7 +339,7 @@ const ModeleList = () => {
           </Table>
           <TablePagination
             component="div"
-            count={sortedModeles.length}
+            count={filteredModeles.length}
             page={page}
             onPageChange={(e, newPage) => setPage(newPage)}
             rowsPerPage={rowsPerPage}
