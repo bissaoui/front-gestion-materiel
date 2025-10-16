@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 import CardLayout from '../../../components/CardLayout';
 import navTabs from "../../../components/adminNavTabs";
-import logoAndzoa from '../../../assets/logoD.png';
+import logoAndzoa from '../../../assets/logoA.jpg';
 
 
 const AffectationsList = () => {

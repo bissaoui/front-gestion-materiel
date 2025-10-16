@@ -12,6 +12,11 @@ export const addMarche = (data) =>
     headers: { Authorization: `Bearer ${getToken()}` }
   });
 
+export const updateMarche = (id, data) =>
+  axios.put(`${API_URL}/api/marches/${id}`, data, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  });
+
 export const deleteMarche = (id) =>
   axios.delete(`${API_URL}/api/marches/${id}`, {
     headers: { Authorization: `Bearer ${getToken()}` }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { getMarches, addMarche, deleteMarche } from '../../../api/marche';
+import { getMarches, addMarche, updateMarche, deleteMarche } from '../../../api/marche';
+import { getPrestataires } from '../../../api/prestataire';
 import { getMateriels, updateMateriel, getTypes, getMarques, getModeles } from '../../../api/materiel';
 import { getAgents } from '../../../api/agents';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -7,6 +8,13 @@ import CardLayout from '../../../components/CardLayout';
 import navTabs from '../../../components/adminNavTabs';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
+import Checkbox from '@mui/material/Checkbox';
+import Typography from '@mui/material/Typography';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -22,10 +30,13 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PrintIcon from '@mui/icons-material/Print';
 import DownloadIcon from '@mui/icons-material/Download';
+import EditIcon from '@mui/icons-material/Edit';
 import Collapse from '@mui/material/Collapse';
 import IconButton from '@mui/material/IconButton';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import DechargePrint from '../../../components/DechargePrint';
 import ExcelJS from 'exceljs';
 
@@ -37,18 +48,66 @@ const MarcheList = () => {
   const [marques, setMarques] = useState([]);
   const [modeles, setModeles] = useState([]);
   const [agents, setAgents] = useState([]);
+  const [prestataires, setPrestataires] = useState([]);
   const [selectedMaterielIds, setSelectedMaterielIds] = useState([]);
   const today = new Date().toISOString().slice(0, 10);
-  const [newMarche, setNewMarche] = useState({ name: '', date: today });
+
+  // Fonction pour formater les dates de manière cohérente
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '-';
+      return date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return '-';
+    }
+  };
+  const [newMarche, setNewMarche] = useState({ 
+    name: '', 
+    date: today,
+    dateOrdreService: '',
+    delaiExecution: '',
+    dateReceptionProvisoire: '',
+    dateReceptionDefinitive: '',
+    typeMarche: 'UNIQUE',
+    prestataireId: ''
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [dateErrors, setDateErrors] = useState([]);
+  const [fieldErrors, setFieldErrors] = useState({
+    dateOrdreService: '',
+    dateReceptionProvisoire: '',
+    dateReceptionDefinitive: ''
+  });
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const location = useLocation();
   const [openRows, setOpenRows] = useState({});
   const [openTypeRows, setOpenTypeRows] = useState({});
   const [dechargeDialog, setDechargeDialog] = useState({ open: false, materiel: null, agent: null });
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingMarche, setEditingMarche] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    date: '',
+    dateOrdreService: '',
+    delaiExecution: '',
+    dateReceptionProvisoire: '',
+    dateReceptionDefinitive: '',
+    typeMarche: 'UNIQUE',
+    prestataireId: ''
+  });
+  const [selectedMaterielsForEdit, setSelectedMaterielsForEdit] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('date'); // 'date' ou 'name'
+  const [sortOrder, setSortOrder] = useState('desc'); // 'asc' ou 'desc'
 
   const getLinkedCount = (marcheId) => {
     return materiels.filter(mat =>
@@ -68,26 +127,74 @@ const MarcheList = () => {
     );
   };
 
+  // Fonction pour obtenir les matériels non assignés à aucun marché
+  const getUnassignedMateriels = () => {
+    return materiels.filter(mat => 
+      !mat?.marcherId && 
+      !mat?.marcheId && 
+      !mat?.marche?.id && 
+      !mat?.marcher?.id
+    );
+  };
+
   const toggleRow = (id) => {
-    setOpenRows(prev => ({ ...prev, [id]: !prev[id] }));
+    setOpenRows(prev => {
+      // Si la section est déjà ouverte, la fermer
+      if (prev[id]) {
+        return { ...prev, [id]: false };
+      } else {
+        // Sinon, fermer toutes les autres sections et ouvrir celle-ci
+        return { [id]: true };
+      }
+    });
   };
 
   const groupLinkedByType = (marcheId) => {
     const list = getLinkedMateriels(marcheId);
-    const byType = {};
+    const byTypeAndMarque = {};
     const typeIdToName = Object.fromEntries(types.map(t => [t.id, t.nom]));
+    const marqueIdToName = Object.fromEntries(marques.map(m => [m.id, m.nom]));
+    
     list.forEach(mat => {
-      const typeName = mat.type?.nom || mat.typeNom || typeIdToName[mat.typeMaterielId] || 'Sans type';
-      if (!byType[typeName]) byType[typeName] = [];
-      byType[typeName].push(mat);
+      const typeName = mat.type?.nom || mat.typeNom || typeIdToName[mat.typeMaterielId] || 'Type manquant';
+      const marqueName = mat.marque?.nom || mat.marqueNom || marqueIdToName[mat.marqueId] || 'Marque manquante';
+      
+      // Créer une clé unique pour chaque combinaison type-marque
+      const key = `${typeName} - ${marqueName}`;
+      
+      if (!byTypeAndMarque[key]) {
+        byTypeAndMarque[key] = {
+          type: typeName,
+          marque: marqueName,
+          materiels: []
+        };
+      }
+      byTypeAndMarque[key].materiels.push(mat);
     });
-    return byType;
+    
+    // Trier par type puis par marque
+    const sortedKeys = Object.keys(byTypeAndMarque).sort((a, b) => {
+      const [typeA, marqueA] = a.split(' - ');
+      const [typeB, marqueB] = b.split(' - ');
+      
+      if (typeA !== typeB) return typeA.localeCompare(typeB);
+      return marqueA.localeCompare(marqueB);
+    });
+    
+    // Reconstruire l'objet trié
+    const sortedResult = {};
+    sortedKeys.forEach(key => {
+      sortedResult[key] = byTypeAndMarque[key];
+    });
+    
+    return sortedResult;
   };
 
   const toggleTypeRow = (marcheId, typeName) => {
     const key = `${marcheId}:${typeName}`;
     setOpenTypeRows(prev => ({ ...prev, [key]: !prev[key] }));
   };
+
 
 
   const handleCloseDecharge = () => {
@@ -294,6 +401,27 @@ const MarcheList = () => {
       return 0;
     });
 
+    // Grouper les données par type, marque et modèle (caractéristiques complètes)
+    const groupedByCharacteristics = {};
+    data.forEach(item => {
+      const key = `${item.type}-${item.marque}-${item.modele}`;
+      if (!groupedByCharacteristics[key]) {
+        groupedByCharacteristics[key] = {
+          type: item.type,
+          marque: item.marque,
+          modele: item.modele,
+          items: []
+        };
+      }
+      groupedByCharacteristics[key].items.push(item);
+    });
+
+    // Reconstruire les données en respectant la séparation par caractéristiques complètes
+    const separatedData = [];
+    Object.values(groupedByCharacteristics).forEach(group => {
+      separatedData.push(...group.items);
+    });
+
     // Créer un nouveau workbook avec ExcelJS
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Affectation");
@@ -421,32 +549,37 @@ const MarcheList = () => {
 
     // Ajouter les données (commence à la ligne 14, colonne B)
     let prixCounter = 1;
-    let currentTypeForPrix = '';
+    let currentCharacteristicsForPrix = '';
+    let isFirstRowOfGroup = true;
     
-    data.forEach((item, index) => {
+    separatedData.forEach((item, index) => {
       const rowNumber = 14 + index;
+      const characteristics = `${item.type}-${item.marque}-${item.modele}`;
       
-      // Incrémenter le numéro de prix seulement quand le type change
-      if (item.type !== currentTypeForPrix) {
-        if (currentTypeForPrix !== '') {
+      // Incrémenter le numéro de prix quand les caractéristiques changent
+      if (characteristics !== currentCharacteristicsForPrix) {
+        if (currentCharacteristicsForPrix !== '') {
           prixCounter++;
         }
-        currentTypeForPrix = item.type;
+        currentCharacteristicsForPrix = characteristics;
+        isFirstRowOfGroup = true;
+      } else {
+        isFirstRowOfGroup = false;
       }
       
       worksheet.getRow(rowNumber).values = [
         '', // Colonne A vide
-        prixCounter, // Colonne B - N° de prix (séquentiel par type)
+        prixCounter, // Colonne B - N° de prix (séquentiel par caractéristiques)
         item.type, // Colonne C
-        item.marque, // Colonne D
-        item.modele, // Colonne E
-        item.numeroSerie, // Colonne F
-        item.agent // Colonne G
+        isFirstRowOfGroup ? item.marque : '', // Colonne D - Marque seulement dans la première ligne du groupe
+        isFirstRowOfGroup ? item.modele : '', // Colonne E - Modèle seulement dans la première ligne du groupe
+        item.numeroSerie, // Colonne F - N° de série dans chaque ligne
+        item.agent // Colonne G - Affectation dans chaque ligne
       ];
     });
 
     // Style des cellules de données
-    for (let i = 0; i < data.length; i++) {
+    for (let i = 0; i < separatedData.length; i++) {
       const rowNumber = 14 + i;
       const row = worksheet.getRow(rowNumber);
       
@@ -520,57 +653,41 @@ const MarcheList = () => {
       });
     }
 
-    // Fusionner les cellules hiérarchiquement (de B à F)
-    let currentType = '';
-    let currentMarque = '';
-    let currentModele = '';
-    let typeStart = 14;
-    let marqueStart = 14;
-    let modeleStart = 14;
+    // Fusionner les cellules par caractéristiques complètes (type + marque + modèle)
+    let currentCharacteristics = '';
+    let groupStart = 14;
+    let groupEnd = 14;
 
-    for (let i = 0; i < data.length; i++) {
+    for (let i = 0; i < separatedData.length; i++) {
       const currentRow = 14 + i;
-      const item = data[i];
+      const item = separatedData[i];
+      const characteristics = `${item.type}-${item.marque}-${item.modele}`;
 
-      // Vérifier changement de Type (Désignation) - Colonnes B et C
-      if (item.type !== currentType) {
-        if (currentType !== '' && currentRow - typeStart > 1) {
-          worksheet.mergeCells(`B${typeStart}:B${currentRow - 1}`); // N° de prix
-          worksheet.mergeCells(`C${typeStart}:C${currentRow - 1}`); // Désignation
+      if (characteristics !== currentCharacteristics) {
+        // Fusionner le groupe précédent s'il y en a un
+        if (currentCharacteristics !== '' && groupEnd > groupStart) {
+          worksheet.mergeCells(`B${groupStart}:B${groupEnd}`); // N° de prix
+          worksheet.mergeCells(`C${groupStart}:C${groupEnd}`); // Désignation
+          worksheet.mergeCells(`D${groupStart}:D${groupEnd}`); // Marque
+          worksheet.mergeCells(`E${groupStart}:E${groupEnd}`); // Modèle
         }
-        currentType = item.type;
-        typeStart = currentRow;
-      }
-
-      // Vérifier changement de Marque - Colonne D
-      if (item.marque !== currentMarque) {
-        if (currentMarque !== '' && currentRow - marqueStart > 1) {
-          worksheet.mergeCells(`D${marqueStart}:D${currentRow - 1}`);
-        }
-        currentMarque = item.marque;
-        marqueStart = currentRow;
-      }
-
-      // Vérifier changement de Modèle - Colonne E
-      if (item.modele !== currentModele) {
-        if (currentModele !== '' && currentRow - modeleStart > 1) {
-          worksheet.mergeCells(`E${modeleStart}:E${currentRow - 1}`);
-        }
-        currentModele = item.modele;
-        modeleStart = currentRow;
+        
+        // Commencer un nouveau groupe
+        currentCharacteristics = characteristics;
+        groupStart = currentRow;
+        groupEnd = currentRow;
+      } else {
+        // Mêmes caractéristiques, étendre la fin du groupe
+        groupEnd = currentRow;
       }
     }
 
-    // Fusionner les derniers groupes
-    if (currentType !== '' && data.length - typeStart + 14 > 1) {
-      worksheet.mergeCells(`B${typeStart}:B${data.length + 13}`); // N° de prix
-      worksheet.mergeCells(`C${typeStart}:C${data.length + 13}`); // Désignation
-    }
-    if (currentMarque !== '' && data.length - marqueStart + 14 > 1) {
-      worksheet.mergeCells(`D${marqueStart}:D${data.length + 13}`);
-    }
-    if (currentModele !== '' && data.length - modeleStart + 14 > 1) {
-      worksheet.mergeCells(`E${modeleStart}:E${data.length + 13}`);
+    // Fusionner le dernier groupe
+    if (currentCharacteristics !== '' && groupEnd > groupStart) {
+      worksheet.mergeCells(`B${groupStart}:B${groupEnd}`); // N° de prix
+      worksheet.mergeCells(`C${groupStart}:C${groupEnd}`); // Désignation
+      worksheet.mergeCells(`D${groupStart}:D${groupEnd}`); // Marque
+      worksheet.mergeCells(`E${groupStart}:E${groupEnd}`); // Modèle
     }
 
     return workbook;
@@ -647,7 +764,7 @@ const MarcheList = () => {
     .decharge-container { margin-bottom: 40px; }
     .decharge-container:not(:last-child) { page-break-after: always; }
     .logo-wrap { display:flex; justify-content:center; margin-bottom: 20px; }
-    .logo { height: 120px; width: 300px; }
+    .logo { height: 120px; width: 330px; }
     .city { text-align:right; margin-top: 6px; font-size: 13px; }
     h1 { text-align:center; text-decoration: underline; font-size: 20px; margin: 14px 0 18px; }
     .intro { text-align:center; font-size: 13px; margin-bottom: 10px; }
@@ -727,7 +844,7 @@ const MarcheList = () => {
     ];
     const col = (field) => mats.map(m => `<td >${m[field] || ''}</td>`).join('');
     
-    const logoUrl = `${window.location.origin}/logo-andzoa.png`;
+    const logoUrl = `${window.location.origin}/logoA.jpg`;
     
     return `
     <div class="decharge-container">
@@ -780,13 +897,14 @@ const MarcheList = () => {
     setLoading(true);
     setError('');
     try {
-      const [mRes, matRes, tRes, mkRes, mdRes, agRes] = await Promise.all([
+      const [mRes, matRes, tRes, mkRes, mdRes, agRes, pRes] = await Promise.all([
         getMarches(),
         getMateriels(),
         getTypes(),
         getMarques(),
         getModeles(),
-        getAgents()
+        getAgents(),
+        getPrestataires()
       ]);
       setMarches(mRes.data || []);
       setMateriels(matRes.data || []);
@@ -794,7 +912,12 @@ const MarcheList = () => {
       setMarques(mkRes.data || []);
       setModeles(mdRes.data || []);
       setAgents(agRes.data || []);
+      setPrestataires(pRes.data || []);
+      console.log('Prestataires chargés:', pRes.data);
+      console.log('Marchés chargés:', mRes.data);
+      console.log('Structure d\'un marché:', mRes.data?.[0]);
     } catch (e) {
+      console.error('Erreur lors du chargement des prestataires:', e);
       setError(e.response?.data?.message || 'Erreur lors du chargement.');
     }
     setLoading(false);
@@ -802,15 +925,279 @@ const MarcheList = () => {
 
   useEffect(() => { fetchAll(); }, []);
 
+  // Réinitialiser la page quand le terme de recherche change
+  useEffect(() => {
+    setPage(0);
+  }, [searchTerm]);
+
+  // Fonction pour basculer le tri par date
+  const handleSortByDate = () => {
+    if (sortBy === 'date') {
+      setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortBy('date');
+      setSortOrder('desc');
+    }
+  };
+
+  // Fonction pour basculer le tri par nom
+  const handleSortByName = () => {
+    if (sortBy === 'name') {
+      setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortBy('name');
+      setSortOrder('asc');
+    }
+  };
+
+  // Fonction pour vérifier si un nom de marché existe déjà
+  const isMarcheNameExists = (name, excludeId = null) => {
+    if (!name || !name.trim()) return false;
+    return marches.some(m => 
+      m.id !== excludeId && m.name.toLowerCase().trim() === name.toLowerCase().trim()
+    );
+  };
+
+  // Fonction pour valider les dates
+  const validateDates = (formData) => {
+    const errors = [];
+    const fieldErrors = {
+      dateOrdreService: '',
+      dateReceptionProvisoire: '',
+      dateReceptionDefinitive: ''
+    };
+    const creationDate = new Date(formData.date);
+    
+    if (formData.dateOrdreService) {
+      const ordreServiceDate = new Date(formData.dateOrdreService);
+      if (ordreServiceDate <= creationDate) {
+        const errorMsg = 'La date ordre de service doit être postérieure à la date de création';
+        errors.push(errorMsg);
+        fieldErrors.dateOrdreService = errorMsg;
+      }
+    }
+    
+    if (formData.dateReceptionProvisoire) {
+      const receptionProvisoireDate = new Date(formData.dateReceptionProvisoire);
+      if (receptionProvisoireDate <= creationDate) {
+        const errorMsg = 'La date réception provisoire doit être postérieure à la date de création';
+        errors.push(errorMsg);
+        fieldErrors.dateReceptionProvisoire = errorMsg;
+      }
+    }
+    
+    if (formData.dateReceptionDefinitive) {
+      const receptionDefinitiveDate = new Date(formData.dateReceptionDefinitive);
+      if (receptionDefinitiveDate <= creationDate) {
+        const errorMsg = 'La date réception définitive doit être postérieure à la date de création';
+        errors.push(errorMsg);
+        fieldErrors.dateReceptionDefinitive = errorMsg;
+      }
+    }
+    
+    return { errors, fieldErrors };
+  };
+
+  // Fonction pour valider un champ spécifique en temps réel
+  const validateField = (fieldName, value) => {
+    if (!value || !newMarche.date) return '';
+    
+    const creationDate = new Date(newMarche.date);
+    const fieldDate = new Date(value);
+    
+    if (fieldDate <= creationDate) {
+      return `La date ${fieldName} doit être postérieure à la date de création`;
+    }
+    
+    return '';
+  };
+
+  // Fonction pour vérifier si une date de réception doit être affichée en rouge
+  const isReceptionDateUrgent = (receptionDate) => {
+    if (!receptionDate) return false;
+    
+    const today = new Date();
+    const reception = new Date(receptionDate);
+    
+    // Normaliser les dates (enlever les heures)
+    today.setHours(0, 0, 0, 0);
+    reception.setHours(0, 0, 0, 0);
+    
+    // Calculer la différence en jours
+    const diffTime = reception.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Rouge si la date est passée ou si elle est dans les 2 prochains jours
+    return diffDays <= 2;
+  };
+
+  // Fonction pour vérifier si une date de réception est passée (pour le clignotement)
+  const isReceptionDatePassed = (receptionDate) => {
+    if (!receptionDate) return false;
+    
+    const today = new Date();
+    const reception = new Date(receptionDate);
+    
+    // Normaliser les dates (enlever les heures)
+    today.setHours(0, 0, 0, 0);
+    reception.setHours(0, 0, 0, 0);
+    
+    // Vérifier si la date est passée
+    return reception < today;
+  };
+
+  // Fonction pour ouvrir le dialog d'édition
+  const handleOpenEditDialog = (marche) => {
+    setEditingMarche(marche);
+    setEditFormData({
+      name: marche.name || '',
+      date: marche.date || '',
+      dateOrdreService: marche.dateOrdreService || '',
+      delaiExecution: marche.delaiExecution || '',
+      dateReceptionProvisoire: marche.dateReceptionProvisoire || '',
+      dateReceptionDefinitive: marche.dateReceptionDefinitive || '',
+      typeMarche: marche.typeMarche || 'UNIQUE',
+      prestataireId: marche.prestataire?.id || marche.prestataireId || ''
+    });
+    
+    // Récupérer les matériels liés à ce marché
+    const linkedMateriels = getLinkedMateriels(marche.id);
+    setSelectedMaterielsForEdit(linkedMateriels.map(m => m.id));
+    
+    setEditDialogOpen(true);
+  };
+
+  // Fonction pour fermer le dialog d'édition
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false);
+    setEditingMarche(null);
+    setEditFormData({
+      name: '',
+      date: '',
+      dateOrdreService: '',
+      delaiExecution: '',
+      dateReceptionProvisoire: '',
+      dateReceptionDefinitive: '',
+      typeMarche: 'UNIQUE',
+      prestataireId: ''
+    });
+    setSelectedMaterielsForEdit([]);
+  };
+
+  // Fonction pour gérer la modification d'un marché
+  const handleUpdateMarche = async () => {
+    setError('');
+    setSuccess('');
+    
+    if (!editFormData.name.trim() || !editFormData.date) {
+      setError('Le nom et la date sont obligatoires');
+      return;
+    }
+
+    // Vérifier l'unicité du nom (en excluant le marché actuel)
+    if (isMarcheNameExists(editFormData.name, editingMarche.id)) {
+      setError(`Un marché avec le nom "${editFormData.name}" existe déjà. Veuillez choisir un nom différent.`);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        name: editFormData.name.trim(),
+        date: editFormData.date,
+        dateOrdreService: editFormData.dateOrdreService || null,
+        delaiExecution: editFormData.delaiExecution ? parseInt(editFormData.delaiExecution) : null,
+        dateReceptionProvisoire: editFormData.dateReceptionProvisoire || null,
+        dateReceptionDefinitive: editFormData.dateReceptionDefinitive || null,
+        typeMarche: editFormData.typeMarche,
+        prestataireId: editFormData.prestataireId || null
+      };
+
+      console.log('Payload de modification envoyé:', payload);
+      await updateMarche(editingMarche.id, payload);
+
+      // Mettre à jour les matériels liés
+      const currentLinkedMateriels = getLinkedMateriels(editingMarche.id);
+      const currentLinkedIds = currentLinkedMateriels.map(m => m.id);
+      
+      // Supprimer les matériels qui ne sont plus sélectionnés
+      for (const materiel of currentLinkedMateriels) {
+        if (!selectedMaterielsForEdit.includes(materiel.id)) {
+          const updated = { ...materiel, marcherId: null, marcheId: null };
+          delete updated.marcher;
+          delete updated.marche;
+          await updateMateriel(materiel.id, updated);
+        }
+      }
+
+      // Ajouter les nouveaux matériels sélectionnés
+      for (const materielId of selectedMaterielsForEdit) {
+        if (!currentLinkedIds.includes(materielId)) {
+          const materiel = materiels.find(m => m.id === materielId);
+          if (materiel) {
+            const updated = { ...materiel, marcherId: editingMarche.id, marcheId: editingMarche.id };
+            delete updated.marcher;
+            delete updated.marche;
+            await updateMateriel(materielId, updated);
+          }
+        }
+      }
+
+      setSuccess('Marché modifié avec succès');
+      handleCloseEditDialog();
+      await fetchAll();
+      
+      // Notifier les autres onglets de la mise à jour
+      const customEventName = 'marches_updated';
+      window.dispatchEvent(new CustomEvent(customEventName));
+      
+    } catch (e) {
+      setError(e.response?.data?.message || 'Erreur lors de la modification du marché');
+    }
+    setLoading(false);
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setDateErrors([]);
+    
     if (!newMarche.name.trim() || !newMarche.date) return;
+    
+    // Valider les dates
+    const { errors: dateValidationErrors, fieldErrors: newFieldErrors } = validateDates(newMarche);
+    if (dateValidationErrors.length > 0) {
+      setDateErrors(dateValidationErrors);
+      setFieldErrors(newFieldErrors);
+      return;
+    }
+    
+    // Vérifier l'unicité du nom de marché
+    const existingMarche = marches.find(m => 
+      m.name.toLowerCase().trim() === newMarche.name.toLowerCase().trim()
+    );
+    
+    if (existingMarche) {
+      setError(`Un marché avec le nom "${newMarche.name}" existe déjà. Veuillez choisir un nom différent.`);
+      return;
+    }
+    
     setLoading(true);
     try {
-      const payload = { name: newMarche.name.trim(), date: newMarche.date };
+      const payload = { 
+        name: newMarche.name.trim(), 
+        date: newMarche.date,
+        dateOrdreService: newMarche.dateOrdreService || null,
+        delaiExecution: newMarche.delaiExecution ? parseInt(newMarche.delaiExecution) : null,
+        dateReceptionProvisoire: newMarche.dateReceptionProvisoire || null,
+        dateReceptionDefinitive: newMarche.dateReceptionDefinitive || null,
+        typeMarche: newMarche.typeMarche,
+        prestataireId: newMarche.prestataireId || null
+      };
+      console.log('Payload envoyé au backend:', payload);
       const res = await addMarche(payload);
+      console.log('Réponse du backend:', res.data);
       const createdId = res?.data?.id;
       // If backend expects linking via materiels, set marcherId on each selected matériel
       if (createdId && selectedMaterielIds.length > 0) {
@@ -828,7 +1215,16 @@ const MarcheList = () => {
           } catch (_) { /* ignore per item */ }
         }
       }
-      setNewMarche({ name: '', date: '' });
+      setNewMarche({ 
+        name: '', 
+        date: today,
+        dateOrdreService: '',
+        delaiExecution: '',
+        dateReceptionProvisoire: '',
+        dateReceptionDefinitive: '',
+        typeMarche: 'UNIQUE',
+        prestataireId: ''
+      });
       setSelectedMaterielIds([]);
       setSuccess('Marché créé avec succès');
       
@@ -907,12 +1303,295 @@ const MarcheList = () => {
     }
   };
 
+  // Filtrer et trier les marchés
+  const filteredAndSortedMarches = React.useMemo(() => {
+    let filtered = marches;
+    
+    // Filtrer par nom de marché
+    if (searchTerm.trim()) {
+      filtered = marches.filter(marche => 
+        marche.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    // Trier selon le critère et l'ordre sélectionnés
+    return filtered.sort((a, b) => {
+      if (sortBy === 'date') {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+      } else if (sortBy === 'name') {
+        const nameA = a.name.toLowerCase();
+        const nameB = b.name.toLowerCase();
+        if (sortOrder === 'desc') {
+          return nameB.localeCompare(nameA);
+        } else {
+          return nameA.localeCompare(nameB);
+        }
+      }
+      return 0;
+    });
+  }, [marches, searchTerm, sortBy, sortOrder]);
+
   return (
     <CardLayout title="Gestion des Marchés" navTabs={navTabs} currentPath={location.pathname}>
-      <Box component="form" onSubmit={handleCreate} sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField label="Nom" size="small" value={newMarche.name} onChange={e => setNewMarche({ ...newMarche, name: e.target.value })} required sx={{ minWidth: 200 }} />
-        <TextField label="Date" type="date" size="small" value={newMarche.date} onChange={e => setNewMarche({ ...newMarche, date: e.target.value })} required sx={{ minWidth: 180 }} InputLabelProps={{ shrink: true }} />
-        <Button type="submit" variant="contained" startIcon={<AddIcon />} disabled={loading}>Ajouter</Button>
+      <Box component="form" onSubmit={handleCreate} sx={{ mb: 3, p: 3, bgcolor: '#f8f9fa', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+        <Typography variant="h6" sx={{ mb: 3, color: '#1976d2', fontWeight: 600 }}>
+          Créer un nouveau marché
+        </Typography>
+        
+        {/* Affichage des erreurs de validation des dates */}
+        {dateErrors.length > 0 && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+              Erreurs de validation des dates :
+            </Typography>
+            <ul style={{ margin: 0, paddingLeft: '20px' }}>
+              {dateErrors.map((error, index) => (
+                <li key={index}>{error}</li>
+              ))}
+            </ul>
+          </Alert>
+        )}
+        
+        {/* Informations principales */}
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: '1fr 1fr 1fr 1fr' }, gap: 2, mb: 3 }}>
+          <TextField 
+            label="Nom du marché" 
+            value={newMarche.name} 
+            onChange={e => setNewMarche({ ...newMarche, name: e.target.value })} 
+            required 
+            error={isMarcheNameExists(newMarche.name)}
+            helperText={isMarcheNameExists(newMarche.name) ? "Ce nom existe déjà" : ""}
+            sx={{ 
+              '& .MuiOutlinedInput-root': { 
+                bgcolor: 'white',
+                borderRadius: 1
+              }
+            }}
+          />
+          <TextField 
+            label="Date de création" 
+            type="date" 
+            value={newMarche.date} 
+            onChange={e => {
+              const value = e.target.value;
+              setNewMarche({ ...newMarche, date: value });
+              // Revalider tous les autres champs quand la date de création change
+              const newFieldErrors = {
+                dateOrdreService: validateField('ordre de service', newMarche.dateOrdreService),
+                dateReceptionProvisoire: validateField('réception provisoire', newMarche.dateReceptionProvisoire),
+                dateReceptionDefinitive: validateField('réception définitive', newMarche.dateReceptionDefinitive)
+              };
+              setFieldErrors(newFieldErrors);
+            }} 
+            required 
+            InputLabelProps={{ shrink: true }}
+            sx={{ 
+              '& .MuiOutlinedInput-root': { 
+                bgcolor: 'white',
+                borderRadius: 1
+              }
+            }}
+          />
+          <TextField 
+            select 
+            label="Type de marché" 
+            value={newMarche.typeMarche} 
+            onChange={e => setNewMarche({ ...newMarche, typeMarche: e.target.value })}
+            sx={{ 
+              '& .MuiOutlinedInput-root': { 
+                bgcolor: 'white',
+                borderRadius: 1
+              }
+            }}
+          >
+            <MenuItem value="UNIQUE">Unique</MenuItem>
+            <MenuItem value="RECONDUCTIBLE">Reconductible</MenuItem>
+          </TextField>
+          <TextField 
+            select 
+            label="Prestataire" 
+            value={newMarche.prestataireId} 
+            onChange={e => setNewMarche({ ...newMarche, prestataireId: e.target.value })}
+            helperText={prestataires.length === 0 ? "Aucun prestataire" : `${prestataires.length} disponible(s)`}
+            sx={{ 
+              '& .MuiOutlinedInput-root': { 
+                bgcolor: 'white',
+                borderRadius: 1
+              }
+            }}
+          >
+            <MenuItem value="">Sélectionner</MenuItem>
+            {prestataires.map(prestataire => (
+              <MenuItem key={prestataire.id} value={prestataire.id}>
+                {prestataire.raisonSocial}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Box>
+        
+        {/* Dates du projet */}
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: '1fr 1fr 1fr 1fr' }, gap: 2, mb: 3 }}>
+          <TextField 
+            label="Date ordre de service" 
+            type="date" 
+            value={newMarche.dateOrdreService} 
+            onChange={e => {
+              const value = e.target.value;
+              setNewMarche({ ...newMarche, dateOrdreService: value });
+              // Validation en temps réel
+              const error = validateField('ordre de service', value);
+              setFieldErrors(prev => ({ ...prev, dateOrdreService: error }));
+              
+              // Recalculer la date de réception provisoire si le délai est déjà saisi
+              if (value && newMarche.delaiExecution) {
+                const ordreServiceDate = new Date(value);
+                const receptionProvisoireDate = new Date(ordreServiceDate);
+                receptionProvisoireDate.setDate(ordreServiceDate.getDate() + parseInt(newMarche.delaiExecution));
+                
+                const formattedDate = receptionProvisoireDate.toISOString().split('T')[0];
+                setNewMarche(prev => ({ 
+                  ...prev, 
+                  dateOrdreService: value,
+                  dateReceptionProvisoire: formattedDate
+                }));
+                
+                // Revalider le champ réception provisoire
+                const receptionError = validateField('réception provisoire', formattedDate);
+                setFieldErrors(prev => ({ ...prev, dateReceptionProvisoire: receptionError }));
+              }
+            }}
+            InputLabelProps={{ shrink: true }}
+            error={!!fieldErrors.dateOrdreService}
+            helperText={fieldErrors.dateOrdreService}
+            sx={{ 
+              '& .MuiOutlinedInput-root': { 
+                bgcolor: 'white',
+                borderRadius: 1
+              }
+            }}
+          />
+          <TextField 
+            label="Délai d'exécution (jours)" 
+            type="number" 
+            value={newMarche.delaiExecution} 
+            onChange={e => {
+              const delai = e.target.value;
+              setNewMarche({ ...newMarche, delaiExecution: delai });
+              
+              // Calculer automatiquement la date de réception provisoire
+              if (delai && newMarche.dateOrdreService) {
+                const ordreServiceDate = new Date(newMarche.dateOrdreService);
+                const receptionProvisoireDate = new Date(ordreServiceDate);
+                receptionProvisoireDate.setDate(ordreServiceDate.getDate() + parseInt(delai));
+                
+                const formattedDate = receptionProvisoireDate.toISOString().split('T')[0];
+                setNewMarche(prev => ({ 
+                  ...prev, 
+                  delaiExecution: delai,
+                  dateReceptionProvisoire: formattedDate
+                }));
+                
+                // Revalider le champ réception provisoire
+                const error = validateField('réception provisoire', formattedDate);
+                setFieldErrors(prev => ({ ...prev, dateReceptionProvisoire: error }));
+              }
+            }}
+            inputProps={{ min: 0 }}
+            sx={{ 
+              '& .MuiOutlinedInput-root': { 
+                bgcolor: 'white',
+                borderRadius: 1
+              }
+            }}
+          />
+          <TextField 
+            label="Date réception provisoire" 
+            type="date" 
+            value={newMarche.dateReceptionProvisoire} 
+            onChange={e => {
+              const value = e.target.value;
+              setNewMarche({ ...newMarche, dateReceptionProvisoire: value });
+              // Validation en temps réel
+              const error = validateField('réception provisoire', value);
+              setFieldErrors(prev => ({ ...prev, dateReceptionProvisoire: error }));
+            }}
+            InputLabelProps={{ shrink: true }}
+            error={!!fieldErrors.dateReceptionProvisoire}
+            helperText={fieldErrors.dateReceptionProvisoire}
+            sx={{ 
+              '& .MuiOutlinedInput-root': { 
+                bgcolor: 'white',
+                borderRadius: 1
+              }
+            }}
+          />
+          <TextField 
+            label="Date réception définitive" 
+            type="date" 
+            value={newMarche.dateReceptionDefinitive} 
+            onChange={e => {
+              const value = e.target.value;
+              setNewMarche({ ...newMarche, dateReceptionDefinitive: value });
+              // Validation en temps réel
+              const error = validateField('réception définitive', value);
+              setFieldErrors(prev => ({ ...prev, dateReceptionDefinitive: error }));
+            }}
+            InputLabelProps={{ shrink: true }}
+            error={!!fieldErrors.dateReceptionDefinitive}
+            helperText={fieldErrors.dateReceptionDefinitive}
+            sx={{ 
+              '& .MuiOutlinedInput-root': { 
+                bgcolor: 'white',
+                borderRadius: 1
+              }
+            }}
+          />
+        </Box>
+        
+        {/* Bouton d'ajout */}
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Button 
+            type="submit" 
+            variant="contained" 
+            startIcon={<AddIcon />} 
+            disabled={loading || isMarcheNameExists(newMarche.name) || !newMarche.name.trim() || 
+              Object.values(fieldErrors).some(error => error !== '')}
+            sx={{ 
+              minWidth: 200,
+              py: 1.5,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '1rem'
+            }}
+          >
+            {loading ? <CircularProgress size={20} color="inherit" /> : 'Créer le marché'}
+          </Button>
+        </Box>
+      </Box>
+      
+      {/* Filtre de recherche */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
+        <TextField 
+          label="Rechercher par nom de marché" 
+          size="small" 
+          value={searchTerm} 
+          onChange={e => setSearchTerm(e.target.value)}
+          sx={{ minWidth: 300 }}
+          placeholder="Ex: M01/2025/ANDZOA"
+        />
+        {searchTerm && (
+          <Button 
+            variant="outlined" 
+            size="small" 
+            onClick={() => setSearchTerm('')}
+            sx={{ minWidth: 100 }}
+          >
+            Effacer
+          </Button>
+        )}
       </Box>
       {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -925,19 +1604,95 @@ const MarcheList = () => {
               <TableRow>
                 <TableCell />
                 <TableCell>ID</TableCell>
-                <TableCell>Nom</TableCell>
-                <TableCell>Date</TableCell>
+                <TableCell 
+                  onClick={handleSortByName}
+                  sx={{ 
+                    cursor: 'pointer', 
+                    userSelect: 'none',
+                    '&:hover': { 
+                      backgroundColor: '#e3f2fd',
+                      '& .sort-icon': {
+                        opacity: 1
+                      }
+                    },
+                    position: 'relative',
+                    paddingRight: '32px'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                    <span>Marché</span>
+                    <Box 
+                      className="sort-icon"
+                      sx={{ 
+                        opacity: sortBy === 'name' ? 1 : 0.3,
+                        transition: 'opacity 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        position: 'absolute',
+                        right: '8px',
+                        top: '50%',
+                        transform: 'translateY(-50%)'
+                      }}
+                    >
+                      {sortBy === 'name' ? (
+                        sortOrder === 'desc' ? <ArrowDownwardIcon fontSize="small" /> : <ArrowUpwardIcon fontSize="small" />
+                      ) : (
+                        <ArrowDownwardIcon fontSize="small" sx={{ opacity: 0.3 }} />
+                      )}
+                    </Box>
+                  </Box>
+                </TableCell>
+                <TableCell 
+                  onClick={handleSortByDate}
+                  sx={{ 
+                    cursor: 'pointer', 
+                    userSelect: 'none',
+                    '&:hover': { 
+                      backgroundColor: '#e3f2fd',
+                      '& .sort-icon': {
+                        opacity: 1
+                      }
+                    },
+                    position: 'relative',
+                    paddingRight: '32px'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                    <span>Date</span>
+                    <Box 
+                      className="sort-icon"
+                      sx={{ 
+                        opacity: sortBy === 'date' ? 1 : 0.3,
+                        transition: 'opacity 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        position: 'absolute',
+                        right: '8px',
+                        top: '50%',
+                        transform: 'translateY(-50%)'
+                      }}
+                    >
+                      {sortBy === 'date' ? (
+                        sortOrder === 'desc' ? <ArrowDownwardIcon fontSize="small" /> : <ArrowUpwardIcon fontSize="small" />
+                      ) : (
+                        <ArrowDownwardIcon fontSize="small" sx={{ opacity: 0.3 }} />
+                      )}
+                    </Box>
+                  </Box>
+                </TableCell>
                 <TableCell>Matériels liés</TableCell>
                 <TableCell align="right">Action</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {marches.length === 0 ? (
+              {filteredAndSortedMarches.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ color: 'text.secondary' }}>Aucun marché trouvé.</TableCell>
+                  <TableCell colSpan={6} align="center" sx={{ color: 'text.secondary' }}>
+                    {searchTerm ? 'Aucun marché trouvé pour cette recherche.' : 'Aucun marché trouvé.'}
+                  </TableCell>
                 </TableRow>
               ) : (
-                marches.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(m => (
+                filteredAndSortedMarches.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(m => (
                   <React.Fragment key={m.id}>
                     <TableRow hover>
                       <TableCell padding="checkbox">
@@ -947,10 +1702,20 @@ const MarcheList = () => {
                       </TableCell>
                       <TableCell>{m.id}</TableCell>
                       <TableCell>{m.name}</TableCell>
-                      <TableCell>{m.date}</TableCell>
+                      <TableCell>{formatDate(m.date)}</TableCell>
                       <TableCell>{getLinkedCount(m.id)}</TableCell>
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                          <Button 
+                            variant="outlined" 
+                            color="info" 
+                            size="small" 
+                            startIcon={<EditIcon />} 
+                            onClick={() => handleOpenEditDialog(m)}
+                            disabled={loading}
+                          >
+                            Modifier
+                          </Button>
                           <Button 
                             variant="outlined" 
                             color="success" 
@@ -979,51 +1744,172 @@ const MarcheList = () => {
                       <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
                         <Collapse in={!!openRows[m.id]} timeout="auto" unmountOnExit>
                           <Box sx={{ margin: 1 }}>
+                            {/* Section d'informations supplémentaires */}
+                            <Box sx={{ mb: 2, border: '1px solid #e0e0e0', borderRadius: 1, p: 2, bgcolor: '#fafafa' }}>
+                              <Box sx={{ fontWeight: 600, color: '#1976d2', mb: 1 }}>Informations du marché</Box>
+                    <Box sx={{ pl: 4, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2 }}>
+                      <Box>
+                        <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Référence marché</Box>
+                        <Box sx={{ fontSize: '0.95rem' }}>{m.name}</Box>
+                      </Box>
+                      <Box>
+                        <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Date de création</Box>
+                        <Box sx={{ fontSize: '0.95rem' }}>{formatDate(m.date)}</Box>
+                      </Box>
+                      <Box>
+                        <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Type de marché</Box>
+                        <Box sx={{ fontSize: '0.95rem' }}>
+                          <Box component="span" sx={{ 
+                            px: 1, 
+                            py: 0.5, 
+                            borderRadius: 1, 
+                            bgcolor: m.typeMarche === 'UNIQUE' ? '#e3f2fd' : '#f3e5f5', 
+                            color: m.typeMarche === 'UNIQUE' ? '#1976d2' : '#7b1fa2',
+                            fontSize: '0.75rem',
+                            fontWeight: 500
+                          }}>
+                            {m.typeMarche === 'UNIQUE' ? 'Unique' : 'Reconductible'}
+                          </Box>
+                        </Box>
+                      </Box>
+                      <Box>
+                        <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Prestataire</Box>
+                        <Box sx={{ fontSize: '0.95rem' }}>
+                          {m.prestataire?.raisonSocial || (m.prestataireId ? prestataires.find(p => p.id === m.prestataireId)?.raisonSocial : null) || 'Non assigné'}
+                        </Box>
+                      </Box>
+                      <Box>
+                        <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Date ordre de service</Box>
+                        <Box sx={{ fontSize: '0.95rem' }}>
+                          {formatDate(m.dateOrdreService)}
+                        </Box>
+                      </Box>
+                      <Box>
+                        <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Délai d'exécution</Box>
+                        <Box sx={{ fontSize: '0.95rem' }}>
+                          {m.delaiExecution ? `${m.delaiExecution} jour(s)` : '-'}
+                        </Box>
+                      </Box>
+                      <Box>
+                        <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Réception provisoire</Box>
+                        <Box sx={{ 
+                          fontSize: '0.95rem',
+                          color: isReceptionDatePassed(m.dateReceptionProvisoire) ? '#d32f2f' : 
+                                 isReceptionDateUrgent(m.dateReceptionProvisoire) ? '#ff9800' : 'inherit',
+                          fontWeight: (isReceptionDateUrgent(m.dateReceptionProvisoire) || isReceptionDatePassed(m.dateReceptionProvisoire)) ? 600 : 'normal',
+                          ...(isReceptionDatePassed(m.dateReceptionProvisoire) && {
+                            animation: 'blink 1s infinite',
+                            '@keyframes blink': {
+                              '0%': { opacity: 1 },
+                              '50%': { opacity: 0.3 },
+                              '100%': { opacity: 1 }
+                            }
+                          })
+                        }}>
+                          {formatDate(m.dateReceptionProvisoire)}
+                          {isReceptionDatePassed(m.dateReceptionProvisoire) && (
+                            <Box component="span" sx={{ ml: 1, fontSize: '0.8rem', fontStyle: 'italic' }}>
+                              (dépassé le délai d'exécution)
+                            </Box>
+                          )}
+                        </Box>
+                      </Box>
+                      <Box>
+                        <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Réception définitive</Box>
+                        <Box sx={{ 
+                          fontSize: '0.95rem',
+                          color: isReceptionDatePassed(m.dateReceptionDefinitive) ? '#d32f2f' : 
+                                 isReceptionDateUrgent(m.dateReceptionDefinitive) ? '#ff9800' : 'inherit',
+                          fontWeight: (isReceptionDateUrgent(m.dateReceptionDefinitive) || isReceptionDatePassed(m.dateReceptionDefinitive)) ? 600 : 'normal',
+                          ...(isReceptionDatePassed(m.dateReceptionDefinitive) && {
+                            animation: 'blink 1s infinite',
+                            '@keyframes blink': {
+                              '0%': { opacity: 1 },
+                              '50%': { opacity: 0.3 },
+                              '100%': { opacity: 1 }
+                            }
+                          })
+                        }}>
+                          {formatDate(m.dateReceptionDefinitive)}
+                          {isReceptionDatePassed(m.dateReceptionDefinitive) && (
+                            <Box component="span" sx={{ ml: 1, fontSize: '0.8rem', fontStyle: 'italic' }}>
+                              (dépassé le délai d'exécution)
+                            </Box>
+                          )}
+                        </Box>
+                      </Box>
+                      <Box>
+                        <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Nombre total de matériels</Box>
+                        <Box sx={{ fontSize: '0.95rem', fontWeight: 600, color: '#1976d2' }}>{getLinkedCount(m.id)}</Box>
+                      </Box>
+                      <Box>
+                        <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Types de matériels</Box>
+                        <Box sx={{ fontSize: '0.95rem' }}>
+                          {Object.keys(groupLinkedByType(m.id)).length} type(s)
+                        </Box>
+                      </Box>
+                    </Box>
+                            </Box>
+
                             {Object.entries(groupLinkedByType(m.id)).length === 0 ? (
                               <Box sx={{ color: 'text.secondary', textAlign: 'center', py: 2 }}>Aucun matériel lié.</Box>
                             ) : (
-                              Object.entries(groupLinkedByType(m.id)).map(([typeName, mats]) => {
-                                const key = `${m.id}:${typeName}`;
+                              Object.entries(groupLinkedByType(m.id)).map(([typeMarqueKey, groupData]) => {
+                                const key = `${m.id}:${typeMarqueKey}`;
                                 const open = !!openTypeRows[key];
+                                const { type, marque, materiels } = groupData;
                                 return (
                                   <Box key={key} sx={{ mb: 1, border: '1px solid #eee', borderRadius: 1 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', px: 1, py: 0.5, bgcolor: '#f9fafb' }}>
-                                      <IconButton size="small" onClick={() => toggleTypeRow(m.id, typeName)}>
+                                      <IconButton size="small" onClick={() => toggleTypeRow(m.id, typeMarqueKey)}>
                                         {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                                       </IconButton>
-                                      <Box sx={{ fontWeight: 600 }}>{typeName}</Box>
-                                      <Box sx={{ ml: 'auto', color: 'text.secondary', mr: 2 }}>{mats.length}</Box>
+                                      <Box sx={{ fontWeight: 600 }}>
+                                        <Box component="span" sx={{ color: '#1976d2' }}>{type}</Box>
+                                        <Box component="span" sx={{ mx: 1, color: '#666' }}>-</Box>
+                                        <Box component="span" sx={{ color: '#d32f2f' }}>{marque}</Box>
+                                      </Box>
+                                      <Box sx={{ ml: 'auto', color: 'text.secondary', mr: 2 }}>{materiels.length}</Box>
                                       <Button
                                         variant="outlined"
                                         size="small"
                                         startIcon={<PrintIcon />}
-                                        onClick={() => handlePrintAllDechargesForType(typeName, mats)}
+                                        onClick={() => handlePrintAllDechargesForType(`${type} - ${marque}`, materiels)}
                                         color="primary"
-                                        sx={{ fontSize: '0.75rem', py: 0.5 }}
+                                        sx={{ 
+                                          fontSize: '0.75rem', 
+                                          py: 0.5,
+                                          width: 250,
+                                          textAlign: 'left'
+                                        }}
                                       >
-                                        Toutes les décharges {typeName}
+                                        Décharges {type} - {marque}
                                       </Button>
                                     </Box>
                                     <Collapse in={open} timeout="auto" unmountOnExit>
-                                      <Table size="small">
+                                      <Table size="small" sx={{ tableLayout: 'fixed' }}>
                                         <TableHead>
                                           <TableRow>
-                                            <TableCell>Numéro de série</TableCell>
-                                            <TableCell>Marque</TableCell>
-                                            <TableCell>Modèle</TableCell>
-                                            <TableCell>Bénéficiaire</TableCell>
-                                            <TableCell>Action</TableCell>
+                                            <TableCell sx={{ width: '18%' }}>Numéro de série</TableCell>
+                                            <TableCell sx={{ width: '12%' }}>Marque</TableCell>
+                                            <TableCell sx={{ width: '22%' }}>Modèle</TableCell>
+                                            <TableCell sx={{ width: '23%' }}>Bénéficiaire</TableCell>
+                                            <TableCell sx={{ width: '25%' }}>Action</TableCell>
                                           </TableRow>
                                         </TableHead>
                                         <TableBody>
-                                          {mats.map(mat => (
+                                          {materiels.map(mat => (
                                             <TableRow key={mat.id}>
-                                              <TableCell>{mat.numeroSerie}</TableCell>
-                                              <TableCell>{mat.marque?.nom || mat.marqueNom || (marques.find(mk => mk.id === mat.marqueId)?.nom)}</TableCell>
-                                              <TableCell>{mat.modele?.nom || mat.modeleNom || (modeles.find(md => md.id === mat.modeleId)?.nom)}</TableCell>
+                                              <TableCell sx={{ width: '18%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mat.numeroSerie || 'Non renseigné'}</TableCell>
+                                              <TableCell sx={{ width: '12%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mat.marque?.nom || mat.marqueNom || (marques.find(mk => mk.id === mat.marqueId)?.nom) || 'Marque manquante'}</TableCell>
+                                              <TableCell sx={{ width: '22%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mat.modele?.nom || mat.modeleNom || (modeles.find(md => md.id === mat.modeleId)?.nom) || 'Modèle manquant'}</TableCell>
                                               <TableCell 
                                                 onClick={() => handleMaterielClick(mat)}
-                                                style={{ 
+                                                sx={{ 
+                                                  width: '23%',
+                                                  overflow: 'hidden', 
+                                                  textOverflow: 'ellipsis', 
+                                                  whiteSpace: 'nowrap',
                                                   cursor: !mat.agentId ? 'pointer' : 'default',
                                                   color: !mat.agentId ? '#1976d2' : 'inherit',
                                                   textDecoration: !mat.agentId ? 'underline' : 'none'
@@ -1035,13 +1921,14 @@ const MarcheList = () => {
                                                   return agent ? `${agent.nom} ${agent.username}` : '-';
                                                 })()}
                                               </TableCell>
-                                              <TableCell>
+                                              <TableCell sx={{ width: '25%' }}>
                                                 <Button
                                                   variant="outlined"
                                                   size="small"
                                                   startIcon={<PrintIcon />}
                                                   onClick={() => handlePrintDechargeDirect(mat)}
                                                   color="primary"
+                                                  sx={{ whiteSpace: 'nowrap' }}
                                                 >
                                                   Décharge Matériel
                                                 </Button>
@@ -1064,7 +1951,7 @@ const MarcheList = () => {
               )}
             </TableBody>
           </Table>
-          <TablePagination component="div" count={marches.length} page={page} onPageChange={(e, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} rowsPerPageOptions={[5,10,20,50]} labelRowsPerPage="Lignes par page" />
+          <TablePagination component="div" count={filteredAndSortedMarches.length} page={page} onPageChange={(e, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} rowsPerPageOptions={[5,10,20,50]} labelRowsPerPage="Lignes par page" />
         </TableContainer>
       )}
 
@@ -1116,6 +2003,406 @@ const MarcheList = () => {
         agent={dechargeDialog.agent}
         onClose={handleCloseDecharge}
       />
+
+      {/* Dialogue de modification de marché */}
+      <Dialog open={editDialogOpen} onClose={handleCloseEditDialog} maxWidth="lg" fullWidth>
+        <DialogTitle sx={{ 
+          background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)', 
+          color: 'white', 
+          fontSize: '1.5rem', 
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          <EditIcon />
+          Modifier le marché
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+  
+
+            {/* Section Configuration */}
+            <Box sx={{ 
+              p: 3, 
+              mt:4,
+              border: '1px solid #e0e0e0', 
+              borderRadius: 2, 
+              bgcolor: '#fafafa',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}>
+              <Typography variant="h6" sx={{ mb: 2, color: '#1976d2', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                ⚙️ Informations du marché : {editFormData.name}
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              <TextField
+                  label="Nom du marché"
+                  value={editFormData.name}
+                  onChange={e => setEditFormData({ ...editFormData, name: e.target.value })}
+                  required
+                  error={isMarcheNameExists(editFormData.name, editingMarche?.id)}
+                  helperText={isMarcheNameExists(editFormData.name, editingMarche?.id) ? "Ce nom de marché existe déjà" : ""}
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      borderRadius: 2,
+                      bgcolor: 'white'
+                    }
+                  }}
+                />
+                <TextField
+                  label="Date de création"
+                  type="date"
+                  value={editFormData.date}
+                  onChange={e => setEditFormData({ ...editFormData, date: e.target.value })}
+                  required
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      borderRadius: 2,
+                      bgcolor: 'white'
+                    }
+                  }}
+                />
+                <TextField
+                  select
+                  label="Type de marché"
+                  value={editFormData.typeMarche}
+                  onChange={e => setEditFormData({ ...editFormData, typeMarche: e.target.value })}
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      borderRadius: 2,
+                      bgcolor: 'white'
+                    }
+                  }}
+                >
+                  <MenuItem value="UNIQUE">Unique</MenuItem>
+                  <MenuItem value="RECONDUCTIBLE">Reconductible</MenuItem>
+                </TextField>
+                <TextField
+                  select
+                  label="Prestataire"
+                  value={editFormData.prestataireId}
+                  onChange={e => setEditFormData({ ...editFormData, prestataireId: e.target.value })}
+                  helperText={prestataires.length === 0 ? "Aucun prestataire disponible" : `${prestataires.length} prestataire(s) disponible(s)`}
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      borderRadius: 2,
+                      bgcolor: 'white'
+                    }
+                  }}
+                >
+                  <MenuItem value="">Sélectionner un prestataire</MenuItem>
+                  {prestataires.map(prestataire => (
+                    <MenuItem key={prestataire.id} value={prestataire.id}>
+                      {prestataire.raisonSocial}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Date ordre de service"
+                  type="date"
+                  value={editFormData.dateOrdreService}
+                  onChange={e => {
+                    const value = e.target.value;
+                    setEditFormData({ ...editFormData, dateOrdreService: value });
+                    
+                    // Recalculer la date de réception provisoire si le délai est déjà saisi
+                    if (value && editFormData.delaiExecution) {
+                      const ordreServiceDate = new Date(value);
+                      const receptionProvisoireDate = new Date(ordreServiceDate);
+                      receptionProvisoireDate.setDate(ordreServiceDate.getDate() + parseInt(editFormData.delaiExecution));
+                      
+                      const formattedDate = receptionProvisoireDate.toISOString().split('T')[0];
+                      setEditFormData(prev => ({ 
+                        ...prev, 
+                        dateOrdreService: value,
+                        dateReceptionProvisoire: formattedDate
+                      }));
+                    }
+                  }}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      borderRadius: 2,
+                      bgcolor: 'white'
+                    }
+                  }}
+                />
+                <TextField
+                  label="Délai d'exécution (jours)"
+                  type="number"
+                  value={editFormData.delaiExecution}
+                  onChange={e => {
+                    const delai = e.target.value;
+                    setEditFormData({ ...editFormData, delaiExecution: delai });
+                    
+                    // Calculer automatiquement la date de réception provisoire
+                    if (delai && editFormData.dateOrdreService) {
+                      const ordreServiceDate = new Date(editFormData.dateOrdreService);
+                      const receptionProvisoireDate = new Date(ordreServiceDate);
+                      receptionProvisoireDate.setDate(ordreServiceDate.getDate() + parseInt(delai));
+                      
+                      const formattedDate = receptionProvisoireDate.toISOString().split('T')[0];
+                      setEditFormData(prev => ({ 
+                        ...prev, 
+                        delaiExecution: delai,
+                        dateReceptionProvisoire: formattedDate
+                      }));
+                    }
+                  }}
+                  inputProps={{ min: 0 }}
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      borderRadius: 2,
+                      bgcolor: 'white'
+                    }
+                  }}
+                />
+                <TextField
+                  label="Date réception provisoire"
+                  type="date"
+                  value={editFormData.dateReceptionProvisoire}
+                  onChange={e => setEditFormData({ ...editFormData, dateReceptionProvisoire: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      borderRadius: 2,
+                      bgcolor: 'white'
+                    }
+                  }}
+                />
+                <TextField
+                  label="Date réception définitive"
+                  type="date"
+                  value={editFormData.dateReceptionDefinitive}
+                  onChange={e => setEditFormData({ ...editFormData, dateReceptionDefinitive: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      borderRadius: 2,
+                      bgcolor: 'white'
+                    }
+                  }}
+                />
+              </Box>
+            </Box>
+
+
+            {/* Section Gestion des matériels */}
+            <Box sx={{ 
+              p: 3, 
+              border: '1px solid #e0e0e0', 
+              borderRadius: 2, 
+              bgcolor: '#fafafa',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}>
+              <Typography variant="h6" sx={{ mb: 3, color: '#1976d2', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                📦 Gestion des matériels
+              </Typography>
+              
+              {/* Matériels actuellement liés */}
+              <Box sx={{ mb: 3 }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1, 
+                  mb: 2, 
+                  p: 2, 
+                  bgcolor: '#e3f2fd', 
+                  borderRadius: 2,
+                  border: '1px solid #bbdefb'
+                }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                    Matériels actuellement liés
+                  </Typography>
+                  <Box sx={{ 
+                    px: 1.5, 
+                    py: 0.5, 
+                    bgcolor: '#1976d2', 
+                    color: 'white', 
+                    borderRadius: 1, 
+                    fontSize: '0.75rem',
+                    fontWeight: 600
+                  }}>
+                    {getLinkedMateriels(editingMarche?.id).length}
+                  </Box>
+                </Box>
+                <Box sx={{ 
+                  maxHeight: 250, 
+                  overflow: 'auto', 
+                  border: '1px solid #e0e0e0', 
+                  borderRadius: 2, 
+                  p: 2, 
+                  bgcolor: 'white',
+                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
+                }}>
+                  {getLinkedMateriels(editingMarche?.id).length === 0 ? (
+                    <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
+                      <Typography variant="body2">Aucun matériel lié à ce marché</Typography>
+                    </Box>
+                  ) : (
+                    getLinkedMateriels(editingMarche?.id).map(materiel => (
+                      <Box key={materiel.id} sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        mb: 2, 
+                        p: 2, 
+                        bgcolor: '#f8f9fa', 
+                        borderRadius: 2, 
+                        border: '1px solid #e0e0e0',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          bgcolor: '#e3f2fd',
+                          borderColor: '#1976d2'
+                        }
+                      }}>
+                        <Checkbox
+                          checked={selectedMaterielsForEdit.includes(materiel.id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setSelectedMaterielsForEdit([...selectedMaterielsForEdit, materiel.id]);
+                            } else {
+                              setSelectedMaterielsForEdit(selectedMaterielsForEdit.filter(id => id !== materiel.id));
+                            }
+                          }}
+                          sx={{ color: '#1976d2' }}
+                        />
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
+                            {materiel.type?.nom || materiel.typeNom || types.find(t => t.id === materiel.typeMaterielId)?.nom || 'Type manquant'} - {materiel.marque?.nom || materiel.marqueNom || marques.find(m => m.id === materiel.marqueId)?.nom || 'Marque manquante'} - {materiel.modele?.nom || materiel.modeleNom || modeles.find(m => m.id === materiel.modeleId)?.nom || 'Modèle manquant'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            N° de série: {materiel.numeroSerie || 'Non renseigné'} | Agent: {materiel.agent?.nom || materiel.agentNom || (materiel.agentId ? agents.find(a => a.id === materiel.agentId)?.nom : null) || 'Non affecté'}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    ))
+                  )}
+                </Box>
+              </Box>
+
+              {/* Matériels disponibles */}
+              <Box>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1, 
+                  mb: 2, 
+                  p: 2, 
+                  bgcolor: '#f3e5f5', 
+                  borderRadius: 2,
+                  border: '1px solid #e1bee7'
+                }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#7b1fa2' }}>
+                    Matériels disponibles
+                  </Typography>
+                  <Box sx={{ 
+                    px: 1.5, 
+                    py: 0.5, 
+                    bgcolor: '#7b1fa2', 
+                    color: 'white', 
+                    borderRadius: 1, 
+                    fontSize: '0.75rem',
+                    fontWeight: 600
+                  }}>
+                    {getUnassignedMateriels().length}
+                  </Box>
+                </Box>
+                <Box sx={{ 
+                  maxHeight: 250, 
+                  overflow: 'auto', 
+                  border: '1px solid #e0e0e0', 
+                  borderRadius: 2, 
+                  p: 2, 
+                  bgcolor: 'white',
+                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
+                }}>
+                  {getUnassignedMateriels().length === 0 ? (
+                    <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
+                      <Typography variant="body2">Tous les matériels sont assignés à des marchés</Typography>
+                    </Box>
+                  ) : (
+                    getUnassignedMateriels().map(materiel => (
+                      <Box key={materiel.id} sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        mb: 2, 
+                        p: 2, 
+                        bgcolor: '#fafafa', 
+                        borderRadius: 2,
+                        border: '1px solid #e0e0e0',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          bgcolor: '#f3e5f5',
+                          borderColor: '#7b1fa2'
+                        }
+                      }}>
+                        <Checkbox
+                          checked={selectedMaterielsForEdit.includes(materiel.id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setSelectedMaterielsForEdit([...selectedMaterielsForEdit, materiel.id]);
+                            } else {
+                              setSelectedMaterielsForEdit(selectedMaterielsForEdit.filter(id => id !== materiel.id));
+                            }
+                          }}
+                          sx={{ color: '#7b1fa2' }}
+                        />
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body2" sx={{ mb: 0.5 }}>
+                            {materiel.type?.nom || materiel.typeNom || types.find(t => t.id === materiel.typeMaterielId)?.nom || 'Type manquant'} - {materiel.marque?.nom || materiel.marqueNom || marques.find(m => m.id === materiel.marqueId)?.nom || 'Marque manquante'} - {materiel.modele?.nom || materiel.modeleNom || modeles.find(m => m.id === materiel.modeleId)?.nom || 'Modèle manquant'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            N° de série: {materiel.numeroSerie || 'Non renseigné'} | Agent: {materiel.agent?.nom || materiel.agentNom || (materiel.agentId ? agents.find(a => a.id === materiel.agentId)?.nom : null) || 'Non affecté'}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    ))
+                  )}
+                </Box>
+              </Box>
+
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ 
+          p: 3, 
+          bgcolor: '#f5f5f5', 
+          borderTop: '1px solid #e0e0e0',
+          gap: 2
+        }}>
+          <Button 
+            onClick={handleCloseEditDialog} 
+            disabled={loading}
+            variant="outlined"
+            sx={{ 
+              minWidth: 120,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 500
+            }}
+          >
+            Annuler
+          </Button>
+          <Button 
+            onClick={handleUpdateMarche} 
+            variant="contained" 
+            disabled={loading || isMarcheNameExists(editFormData.name, editingMarche?.id) || !editFormData.name.trim()}
+            sx={{ 
+              minWidth: 120,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 500,
+              background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
+              }
+            }}
+          >
+            {loading ? <CircularProgress size={20} color="inherit" /> : 'Modifier'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </CardLayout>
   );
 };

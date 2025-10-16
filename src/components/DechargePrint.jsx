@@ -30,7 +30,7 @@ const DechargePrint = ({ materiel, agent, onClose, open }) => {
     const col = (field) => mats.map(m => `<td >${m[field] || ''}</td>`).join('');
     
     // URL du logo (utiliser le logo ANDZOA)
-    const logoUrl = `${window.location.origin}/logo-andzoa.png`;
+    const logoUrl = `${window.location.origin}/logoA.jpg`;
     
     return `<!DOCTYPE html>
       <html>
@@ -81,7 +81,7 @@ const DechargePrint = ({ materiel, agent, onClose, open }) => {
 <body>
   <div class="logo-wrap"><img src="${logoUrl}" class="logo" /></div>
 </br>
-<div class="city"><span >............... </span> , le ${prettyDate}</div>  </br>
+<div class="city"><span >.......ds........ </span> , le ${prettyDate}</div>  </br>
 </br>
   <h1>Décharge de matériel informatique</h1>
       </br>
