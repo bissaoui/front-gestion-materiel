@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getPrestataires, addPrestataire, updatePrestataire, deletePrestataire } from '../../../api/prestataire';
+import { getMarches } from '../../../api/marche';
 import { useLocation } from 'react-router-dom';
 import CardLayout from '../../../components/CardLayout';
 import navTabs from '../../../components/adminNavTabs';
@@ -28,6 +29,7 @@ import Tooltip from '@mui/material/Tooltip';
 
 const PrestataireList = () => {
   const [prestataires, setPrestataires] = useState([]);
+  const [marches, setMarches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -40,10 +42,25 @@ const PrestataireList = () => {
     raisonSocial: '',
     numeroTele: ''
   });
+  const [fieldErrors, setFieldErrors] = useState({});
   const location = useLocation();
 
   useEffect(() => {
     fetchPrestataires();
+    fetchMarches();
+  }, []);
+
+  // Écouter les mises à jour des marchés depuis d'autres onglets
+  useEffect(() => {
+    const handleMarchesUpdate = () => {
+      fetchMarches();
+    };
+
+    window.addEventListener('marches_updated', handleMarchesUpdate);
+    
+    return () => {
+      window.removeEventListener('marches_updated', handleMarchesUpdate);
+    };
   }, []);
 
   const fetchPrestataires = async () => {
@@ -56,6 +73,23 @@ const PrestataireList = () => {
       setError(e.response?.data?.message || 'Erreur lors du chargement des prestataires');
     }
     setLoading(false);
+  };
+
+  const fetchMarches = async () => {
+    try {
+      const res = await getMarches();
+      setMarches(res.data || []);
+    } catch (e) {
+      console.error('Erreur lors du chargement des marchés:', e);
+    }
+  };
+
+  // Fonction pour calculer le nombre de marchés d'un prestataire
+  const getMarchesCount = (prestataireId) => {
+    return marches.filter(marche => 
+      marche.prestataireId === prestataireId || 
+      marche.prestataire?.id === prestataireId
+    ).length;
   };
 
   const handleOpenDialog = (prestataire = null) => {
@@ -82,6 +116,7 @@ const PrestataireList = () => {
       raisonSocial: '',
       numeroTele: ''
     });
+    setFieldErrors({});
   };
 
   const handleSubmit = async (e) => {
@@ -91,6 +126,17 @@ const PrestataireList = () => {
     
     if (!formData.raisonSocial.trim()) {
       setError('La raison sociale est obligatoire');
+      return;
+    }
+
+    // Vérifier l'unicité de la raison sociale
+    const raisonSocialExists = prestataires.some(prestataire => 
+      prestataire.raisonSocial?.toLowerCase().trim() === formData.raisonSocial.toLowerCase().trim() &&
+      prestataire.id !== editingPrestataire?.id
+    );
+
+    if (raisonSocialExists) {
+      setError('Cette raison sociale existe déjà. Veuillez choisir une raison sociale différente.');
       return;
     }
 
@@ -104,7 +150,11 @@ const PrestataireList = () => {
         setSuccess('Prestataire ajouté avec succès');
       }
       await fetchPrestataires();
+      await fetchMarches();
       handleCloseDialog();
+      
+      // Notifier les autres onglets de la mise à jour
+      window.dispatchEvent(new CustomEvent('prestataires_updated'));
     } catch (e) {
       setError(e.response?.data?.message || 'Erreur lors de la sauvegarde');
     }
@@ -121,6 +171,7 @@ const PrestataireList = () => {
       await deletePrestataire(id);
       setSuccess('Prestataire supprimé avec succès');
       await fetchPrestataires();
+      await fetchMarches();
     } catch (e) {
       setError(e.response?.data?.message || 'Erreur lors de la suppression');
     }
@@ -133,6 +184,26 @@ const PrestataireList = () => {
       ...prev,
       [name]: value
     }));
+
+    // Validation en temps réel pour la raison sociale
+    if (name === 'raisonSocial') {
+      const raisonSocialExists = prestataires.some(prestataire => 
+        prestataire.raisonSocial?.toLowerCase().trim() === value.toLowerCase().trim() &&
+        prestataire.id !== editingPrestataire?.id
+      );
+
+      if (raisonSocialExists) {
+        setFieldErrors(prev => ({
+          ...prev,
+          raisonSocial: 'Cette raison sociale existe déjà'
+        }));
+      } else {
+        setFieldErrors(prev => ({
+          ...prev,
+          raisonSocial: ''
+        }));
+      }
+    }
   };
 
   // Filtrer les prestataires
@@ -223,7 +294,7 @@ const PrestataireList = () => {
                           fontSize: '0.75rem',
                           fontWeight: 500
                         }}>
-                          {prestataire.marches?.length || 0} marché(s)
+                          {getMarchesCount(prestataire.id)} marché(s)
                         </Box>
                       </TableCell>
                       <TableCell align="right">
@@ -285,6 +356,13 @@ const PrestataireList = () => {
                 fullWidth
                 required
                 placeholder="Nom de l'entreprise"
+                error={!!fieldErrors.raisonSocial}
+                helperText={fieldErrors.raisonSocial}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: 'white'
+                  }
+                }}
               />
               <TextField
                 label="Numéro de Téléphone"
@@ -300,7 +378,11 @@ const PrestataireList = () => {
             <Button onClick={handleCloseDialog} disabled={loading}>
               Annuler
             </Button>
-            <Button type="submit" variant="contained" disabled={loading}>
+            <Button 
+              type="submit" 
+              variant="contained" 
+              disabled={loading || !!fieldErrors.raisonSocial || !formData.raisonSocial.trim()}
+            >
               {loading ? <CircularProgress size={20} /> : (editingPrestataire ? 'Modifier' : 'Ajouter')}
             </Button>
           </DialogActions>

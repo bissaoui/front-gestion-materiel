@@ -10,6 +10,7 @@ import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import Typography from '@mui/material/Typography';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -75,7 +76,8 @@ const MarcheList = () => {
     dateReceptionProvisoire: '',
     dateReceptionDefinitive: '',
     typeMarche: 'UNIQUE',
-    prestataireId: ''
+    prestataireId: '',
+    hasRetenueGarantie: false
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -102,7 +104,8 @@ const MarcheList = () => {
     dateReceptionProvisoire: '',
     dateReceptionDefinitive: '',
     typeMarche: 'UNIQUE',
-    prestataireId: ''
+    prestataireId: '',
+    hasRetenueGarantie: false
   });
   const [selectedMaterielsForEdit, setSelectedMaterielsForEdit] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -925,6 +928,114 @@ const MarcheList = () => {
 
   useEffect(() => { fetchAll(); }, []);
 
+  // Écouter les mises à jour des prestataires depuis d'autres onglets
+  useEffect(() => {
+    console.log('🔧 Initialisation du système de mise à jour des prestataires');
+    
+    const handlePrestatairesUpdate = () => {
+      console.log('📡 Événement prestataires_updated reçu');
+      // Recharger seulement les prestataires
+      getPrestataires().then(res => {
+        const newPrestataires = res.data || [];
+        console.log('✅ Prestataires mis à jour via événement:', newPrestataires);
+        setPrestataires(newPrestataires);
+      }).catch(err => {
+        console.error('❌ Erreur lors du rechargement des prestataires:', err);
+      });
+    };
+
+    // Écouter l'événement de mise à jour des prestataires
+    window.addEventListener('prestataires_updated', handlePrestatairesUpdate);
+    console.log('👂 Écouteur d\'événement prestataires_updated ajouté');
+    
+    // Polling pour vérifier les mises à jour toutes les 3 secondes (plus fréquent)
+    const pollingInterval = setInterval(() => {
+      console.log('🔄 Vérification des prestataires via polling...');
+      getPrestataires().then(res => {
+        const newPrestataires = res.data || [];
+        setPrestataires(prevPrestataires => {
+          // Vérifier si la liste a changé
+          const prevIds = prevPrestataires.map(p => p.id).sort();
+          const newIds = newPrestataires.map(p => p.id).sort();
+          
+          if (prevPrestataires.length !== newPrestataires.length || 
+              JSON.stringify(prevIds) !== JSON.stringify(newIds)) {
+            console.log('🆕 Nouveaux prestataires détectés via polling:');
+            console.log('   Anciens:', prevPrestataires.map(p => p.raisonSocial));
+            console.log('   Nouveaux:', newPrestataires.map(p => p.raisonSocial));
+            return newPrestataires;
+          } else {
+            console.log('✅ Aucun changement détecté dans les prestataires');
+            return prevPrestataires;
+          }
+        });
+      }).catch(err => {
+        console.error('❌ Erreur lors du polling des prestataires:', err);
+      });
+    }, 3000); // Vérifier toutes les 3 secondes
+    
+    // Nettoyer les écouteurs
+    return () => {
+      console.log('🧹 Nettoyage des écouteurs de prestataires');
+      window.removeEventListener('prestataires_updated', handlePrestatairesUpdate);
+      clearInterval(pollingInterval);
+    };
+  }, []);
+
+  // Écouter les mises à jour des matériels depuis d'autres onglets
+  useEffect(() => {
+    console.log('🔧 Initialisation du système de mise à jour des matériels');
+    
+    const handleMaterielsUpdate = () => {
+      console.log('📡 Événement materiels_updated reçu');
+      // Recharger seulement les matériels
+      getMateriels().then(res => {
+        const newMateriels = res.data || [];
+        console.log('✅ Matériels mis à jour via événement:', newMateriels);
+        setMateriels(newMateriels);
+      }).catch(err => {
+        console.error('❌ Erreur lors du rechargement des matériels:', err);
+      });
+    };
+
+    // Écouter l'événement de mise à jour des matériels
+    window.addEventListener('materiels_updated', handleMaterielsUpdate);
+    console.log('👂 Écouteur d\'événement materiels_updated ajouté');
+    
+    // Polling pour vérifier les mises à jour toutes les 3 secondes
+    const pollingInterval = setInterval(() => {
+      console.log('🔄 Vérification des matériels via polling...');
+      getMateriels().then(res => {
+        const newMateriels = res.data || [];
+        setMateriels(prevMateriels => {
+          // Vérifier si la liste a changé
+          const prevIds = prevMateriels.map(m => m.id).sort();
+          const newIds = newMateriels.map(m => m.id).sort();
+          
+          if (prevMateriels.length !== newMateriels.length || 
+              JSON.stringify(prevIds) !== JSON.stringify(newIds)) {
+            console.log('🆕 Nouveaux matériels détectés via polling:');
+            console.log('   Anciens:', prevMateriels.map(m => m.nom));
+            console.log('   Nouveaux:', newMateriels.map(m => m.nom));
+            return newMateriels;
+          } else {
+            console.log('✅ Aucun changement détecté dans les matériels');
+            return prevMateriels;
+          }
+        });
+      }).catch(err => {
+        console.error('❌ Erreur lors du polling des matériels:', err);
+      });
+    }, 3000); // Vérifier toutes les 3 secondes
+    
+    // Nettoyer les écouteurs
+    return () => {
+      console.log('🧹 Nettoyage des écouteurs de matériels');
+      window.removeEventListener('materiels_updated', handleMaterielsUpdate);
+      clearInterval(pollingInterval);
+    };
+  }, []);
+
   // Réinitialiser la page quand le terme de recherche change
   useEffect(() => {
     setPage(0);
@@ -1031,6 +1142,53 @@ const MarcheList = () => {
     return diffDays <= 2;
   };
 
+  // Fonction pour calculer les jours restants basé sur la date ordre de service et délai
+  const calculateDaysRemaining = (dateOrdreService, delaiExecution) => {
+    if (!dateOrdreService || !delaiExecution) return null;
+    
+    const today = new Date();
+    const ordreServiceDate = new Date(dateOrdreService);
+    const receptionDate = new Date(ordreServiceDate);
+    receptionDate.setDate(ordreServiceDate.getDate() + parseInt(delaiExecution));
+    
+    // Normaliser les dates
+    today.setHours(0, 0, 0, 0);
+    receptionDate.setHours(0, 0, 0, 0);
+    
+    const diffTime = receptionDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
+  };
+
+  // Fonction pour vérifier si la date de réception correspond au calcul
+  const isReceptionDateConsistent = (dateOrdreService, delaiExecution, dateReceptionProvisoire) => {
+    if (!dateOrdreService || !delaiExecution || !dateReceptionProvisoire) return true;
+    
+    const ordreServiceDate = new Date(dateOrdreService);
+    const calculatedReceptionDate = new Date(ordreServiceDate);
+    calculatedReceptionDate.setDate(ordreServiceDate.getDate() + parseInt(delaiExecution));
+    
+    const actualReceptionDate = new Date(dateReceptionProvisoire);
+    
+    // Normaliser les dates
+    calculatedReceptionDate.setHours(0, 0, 0, 0);
+    actualReceptionDate.setHours(0, 0, 0, 0);
+    
+    return calculatedReceptionDate.getTime() === actualReceptionDate.getTime();
+  };
+
+  // Fonction pour calculer la date de réception attendue
+  const getExpectedReceptionDate = (dateOrdreService, delaiExecution) => {
+    if (!dateOrdreService || !delaiExecution) return null;
+    
+    const ordreServiceDate = new Date(dateOrdreService);
+    const receptionDate = new Date(ordreServiceDate);
+    receptionDate.setDate(ordreServiceDate.getDate() + parseInt(delaiExecution));
+    
+    return receptionDate.toISOString().split('T')[0];
+  };
+
   // Fonction pour vérifier si une date de réception est passée (pour le clignotement)
   const isReceptionDatePassed = (receptionDate) => {
     if (!receptionDate) return false;
@@ -1057,7 +1215,8 @@ const MarcheList = () => {
       dateReceptionProvisoire: marche.dateReceptionProvisoire || '',
       dateReceptionDefinitive: marche.dateReceptionDefinitive || '',
       typeMarche: marche.typeMarche || 'UNIQUE',
-      prestataireId: marche.prestataire?.id || marche.prestataireId || ''
+      prestataireId: marche.prestataire?.id || marche.prestataireId || '',
+      hasRetenueGarantie: marche.hasRetenueGarantie || false
     });
     
     // Récupérer les matériels liés à ce marché
@@ -1079,7 +1238,8 @@ const MarcheList = () => {
       dateReceptionProvisoire: '',
       dateReceptionDefinitive: '',
       typeMarche: 'UNIQUE',
-      prestataireId: ''
+      prestataireId: '',
+      hasRetenueGarantie: false
     });
     setSelectedMaterielsForEdit([]);
   };
@@ -1100,6 +1260,14 @@ const MarcheList = () => {
       return;
     }
 
+    // Vérifier la cohérence de la date de réception provisoire
+    if (editFormData.dateOrdreService && editFormData.delaiExecution && editFormData.dateReceptionProvisoire) {
+      if (!isReceptionDateConsistent(editFormData.dateOrdreService, editFormData.delaiExecution, editFormData.dateReceptionProvisoire)) {
+        setError('La date de réception provisoire ne correspond pas au calcul (date ordre de service + délai d\'exécution). Veuillez corriger ou utiliser le bouton "Calculer automatiquement".');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const payload = {
@@ -1110,7 +1278,8 @@ const MarcheList = () => {
         dateReceptionProvisoire: editFormData.dateReceptionProvisoire || null,
         dateReceptionDefinitive: editFormData.dateReceptionDefinitive || null,
         typeMarche: editFormData.typeMarche,
-        prestataireId: editFormData.prestataireId || null
+        prestataireId: editFormData.prestataireId || null,
+        hasRetenueGarantie: editFormData.hasRetenueGarantie
       };
 
       console.log('Payload de modification envoyé:', payload);
@@ -1193,7 +1362,8 @@ const MarcheList = () => {
         dateReceptionProvisoire: newMarche.dateReceptionProvisoire || null,
         dateReceptionDefinitive: newMarche.dateReceptionDefinitive || null,
         typeMarche: newMarche.typeMarche,
-        prestataireId: newMarche.prestataireId || null
+        prestataireId: newMarche.prestataireId || null,
+        hasRetenueGarantie: newMarche.hasRetenueGarantie
       };
       console.log('Payload envoyé au backend:', payload);
       const res = await addMarche(payload);
@@ -1223,7 +1393,8 @@ const MarcheList = () => {
         dateReceptionProvisoire: '',
         dateReceptionDefinitive: '',
         typeMarche: 'UNIQUE',
-        prestataireId: ''
+        prestataireId: '',
+        hasRetenueGarantie: false
       });
       setSelectedMaterielIds([]);
       setSuccess('Marché créé avec succès');
@@ -1432,35 +1603,32 @@ const MarcheList = () => {
         </Box>
         
         {/* Dates du projet */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: '1fr 1fr 1fr 1fr' }, gap: 2, mb: 3 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: '1fr 1fr 1fr 1fr' }, gap: 2, mb: 4 }}>
           <TextField 
             label="Date ordre de service" 
             type="date" 
             value={newMarche.dateOrdreService} 
             onChange={e => {
               const value = e.target.value;
-              setNewMarche({ ...newMarche, dateOrdreService: value });
+              let newDateReceptionDefinitive = newMarche.dateReceptionDefinitive;
+              
+              // Si retenue de garantie est cochée, recalculer la date de réception définitive
+              if (newMarche.hasRetenueGarantie && value) {
+                const ordreServiceDate = new Date(value);
+                const receptionDefinitiveDate = new Date(ordreServiceDate);
+                receptionDefinitiveDate.setFullYear(receptionDefinitiveDate.getFullYear() + 1);
+                newDateReceptionDefinitive = receptionDefinitiveDate.toISOString().split('T')[0];
+              }
+              
+              setNewMarche({ 
+                ...newMarche, 
+                dateOrdreService: value,
+                dateReceptionDefinitive: newDateReceptionDefinitive
+              });
+              
               // Validation en temps réel
               const error = validateField('ordre de service', value);
               setFieldErrors(prev => ({ ...prev, dateOrdreService: error }));
-              
-              // Recalculer la date de réception provisoire si le délai est déjà saisi
-              if (value && newMarche.delaiExecution) {
-                const ordreServiceDate = new Date(value);
-                const receptionProvisoireDate = new Date(ordreServiceDate);
-                receptionProvisoireDate.setDate(ordreServiceDate.getDate() + parseInt(newMarche.delaiExecution));
-                
-                const formattedDate = receptionProvisoireDate.toISOString().split('T')[0];
-                setNewMarche(prev => ({ 
-                  ...prev, 
-                  dateOrdreService: value,
-                  dateReceptionProvisoire: formattedDate
-                }));
-                
-                // Revalider le champ réception provisoire
-                const receptionError = validateField('réception provisoire', formattedDate);
-                setFieldErrors(prev => ({ ...prev, dateReceptionProvisoire: receptionError }));
-              }
             }}
             InputLabelProps={{ shrink: true }}
             error={!!fieldErrors.dateOrdreService}
@@ -1479,24 +1647,6 @@ const MarcheList = () => {
             onChange={e => {
               const delai = e.target.value;
               setNewMarche({ ...newMarche, delaiExecution: delai });
-              
-              // Calculer automatiquement la date de réception provisoire
-              if (delai && newMarche.dateOrdreService) {
-                const ordreServiceDate = new Date(newMarche.dateOrdreService);
-                const receptionProvisoireDate = new Date(ordreServiceDate);
-                receptionProvisoireDate.setDate(ordreServiceDate.getDate() + parseInt(delai));
-                
-                const formattedDate = receptionProvisoireDate.toISOString().split('T')[0];
-                setNewMarche(prev => ({ 
-                  ...prev, 
-                  delaiExecution: delai,
-                  dateReceptionProvisoire: formattedDate
-                }));
-                
-                // Revalider le champ réception provisoire
-                const error = validateField('réception provisoire', formattedDate);
-                setFieldErrors(prev => ({ ...prev, dateReceptionProvisoire: error }));
-              }
             }}
             inputProps={{ min: 0 }}
             sx={{ 
@@ -1518,8 +1668,15 @@ const MarcheList = () => {
               setFieldErrors(prev => ({ ...prev, dateReceptionProvisoire: error }));
             }}
             InputLabelProps={{ shrink: true }}
-            error={!!fieldErrors.dateReceptionProvisoire}
-            helperText={fieldErrors.dateReceptionProvisoire}
+            error={!!fieldErrors.dateReceptionProvisoire || !isReceptionDateConsistent(newMarche.dateOrdreService, newMarche.delaiExecution, newMarche.dateReceptionProvisoire)}
+            helperText={
+              fieldErrors.dateReceptionProvisoire || 
+              (!isReceptionDateConsistent(newMarche.dateOrdreService, newMarche.delaiExecution, newMarche.dateReceptionProvisoire) && 
+               newMarche.dateOrdreService && 
+               newMarche.delaiExecution
+                ? `Date attendue: ${formatDate(getExpectedReceptionDate(newMarche.dateOrdreService, newMarche.delaiExecution))}`
+                : '')
+            }
             sx={{ 
               '& .MuiOutlinedInput-root': { 
                 bgcolor: 'white',
@@ -1527,28 +1684,99 @@ const MarcheList = () => {
               }
             }}
           />
-          <TextField 
-            label="Date réception définitive" 
-            type="date" 
-            value={newMarche.dateReceptionDefinitive} 
-            onChange={e => {
-              const value = e.target.value;
-              setNewMarche({ ...newMarche, dateReceptionDefinitive: value });
-              // Validation en temps réel
-              const error = validateField('réception définitive', value);
-              setFieldErrors(prev => ({ ...prev, dateReceptionDefinitive: error }));
-            }}
-            InputLabelProps={{ shrink: true }}
-            error={!!fieldErrors.dateReceptionDefinitive}
-            helperText={fieldErrors.dateReceptionDefinitive}
-            sx={{ 
-              '& .MuiOutlinedInput-root': { 
-                bgcolor: 'white',
-                borderRadius: 1
+          
+          {/* Retenue de garantie */}
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: 1, 
+            p: 2, 
+            border: '1px solid #e0e0e0', 
+            borderRadius: 1,
+            bgcolor: '#f9f9f9',
+            mb: 2
+          }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={newMarche.hasRetenueGarantie}
+                  onChange={e => {
+                    const isChecked = e.target.checked;
+                    let newDateReceptionDefinitive = '';
+                    
+                    // Si on coche la case et qu'il y a une date d'ordre de service, calculer automatiquement
+                    if (isChecked && newMarche.dateOrdreService) {
+                      const ordreServiceDate = new Date(newMarche.dateOrdreService);
+                      const receptionDefinitiveDate = new Date(ordreServiceDate);
+                      receptionDefinitiveDate.setFullYear(receptionDefinitiveDate.getFullYear() + 1);
+                      newDateReceptionDefinitive = receptionDefinitiveDate.toISOString().split('T')[0];
+                    } else if (isChecked) {
+                      // Si on coche mais pas de date d'ordre de service, garder la date existante
+                      newDateReceptionDefinitive = newMarche.dateReceptionDefinitive;
+                    }
+                    
+                    setNewMarche({ 
+                      ...newMarche, 
+                      hasRetenueGarantie: isChecked,
+                      dateReceptionDefinitive: newDateReceptionDefinitive
+                    });
+                  }}
+                  color="primary"
+                />
               }
-            }}
-          />
+              label="Ce marché a une retenue de garantie"
+              sx={{ fontWeight: 500 }}
+            />
+            
+            {newMarche.hasRetenueGarantie && (
+              <TextField
+                label="Date de réception définitive"
+                type="date"
+                value={newMarche.dateReceptionDefinitive}
+                onChange={e => {
+                  const value = e.target.value;
+                  setNewMarche({ ...newMarche, dateReceptionDefinitive: value });
+                  // Validation en temps réel
+                  const error = validateField('réception définitive', value);
+                  setFieldErrors(prev => ({ ...prev, dateReceptionDefinitive: error }));
+                }}
+                InputLabelProps={{ shrink: true }}
+                error={!!fieldErrors.dateReceptionDefinitive}
+                helperText={fieldErrors.dateReceptionDefinitive}
+                sx={{ 
+                  '& .MuiOutlinedInput-root': { 
+                    bgcolor: 'white',
+                    borderRadius: 1
+                  }
+                }}
+              />
+            )}
+          </Box>
         </Box>
+        
+        {/* Bouton Calculer automatiquement */}
+        {newMarche.dateOrdreService && newMarche.delaiExecution && (
+          <Box sx={{ mb: 3, mt: 4, display: 'flex', justifyContent: 'center' }}>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={() => {
+                const expectedDate = getExpectedReceptionDate(newMarche.dateOrdreService, newMarche.delaiExecution);
+                if (expectedDate) {
+                  setNewMarche(prev => ({ ...prev, dateReceptionProvisoire: expectedDate }));
+                }
+              }}
+              sx={{ 
+                fontSize: '0.875rem',
+                textTransform: 'none',
+                px: 3,
+                py: 1
+              }}
+            >
+              Calculer automatiquement la date de réception provisoire
+            </Button>
+          </Box>
+        )}
         
         {/* Bouton d'ajout */}
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
@@ -1792,52 +2020,90 @@ const MarcheList = () => {
                       </Box>
                       <Box>
                         <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Réception provisoire</Box>
-                        <Box sx={{ 
-                          fontSize: '0.95rem',
-                          color: isReceptionDatePassed(m.dateReceptionProvisoire) ? '#d32f2f' : 
-                                 isReceptionDateUrgent(m.dateReceptionProvisoire) ? '#ff9800' : 'inherit',
-                          fontWeight: (isReceptionDateUrgent(m.dateReceptionProvisoire) || isReceptionDatePassed(m.dateReceptionProvisoire)) ? 600 : 'normal',
-                          ...(isReceptionDatePassed(m.dateReceptionProvisoire) && {
-                            animation: 'blink 1s infinite',
-                            '@keyframes blink': {
-                              '0%': { opacity: 1 },
-                              '50%': { opacity: 0.3 },
-                              '100%': { opacity: 1 }
+                        {m.dateReceptionProvisoire ? (
+                          // Si date saisie, afficher normalement sans alerte
+                          <Box sx={{ fontSize: '0.95rem' }}>
+                            {formatDate(m.dateReceptionProvisoire)}
+                          </Box>
+                        ) : (
+                          // Si pas de date saisie, calculer et afficher les jours restants
+                          (() => {
+                            const daysRemaining = calculateDaysRemaining(m.dateOrdreService, m.delaiExecution);
+                            if (daysRemaining === null) {
+                              return (
+                                <Box sx={{ fontSize: '0.95rem', color: '#666', fontStyle: 'italic' }}>
+                                  Date non définie
+                                </Box>
+                              );
                             }
-                          })
-                        }}>
-                          {formatDate(m.dateReceptionProvisoire)}
-                          {isReceptionDatePassed(m.dateReceptionProvisoire) && (
-                            <Box component="span" sx={{ ml: 1, fontSize: '0.8rem', fontStyle: 'italic' }}>
-                              (dépassé le délai d'exécution)
-                            </Box>
-                          )}
-                        </Box>
-                      </Box>
-                      <Box>
-                        <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Réception définitive</Box>
-                        <Box sx={{ 
-                          fontSize: '0.95rem',
-                          color: isReceptionDatePassed(m.dateReceptionDefinitive) ? '#d32f2f' : 
-                                 isReceptionDateUrgent(m.dateReceptionDefinitive) ? '#ff9800' : 'inherit',
-                          fontWeight: (isReceptionDateUrgent(m.dateReceptionDefinitive) || isReceptionDatePassed(m.dateReceptionDefinitive)) ? 600 : 'normal',
-                          ...(isReceptionDatePassed(m.dateReceptionDefinitive) && {
-                            animation: 'blink 1s infinite',
-                            '@keyframes blink': {
-                              '0%': { opacity: 1 },
-                              '50%': { opacity: 0.3 },
-                              '100%': { opacity: 1 }
+                            
+                            if (daysRemaining < 0) {
+                              return (
+                                <Box sx={{ 
+                                  fontSize: '0.95rem', 
+                                  color: '#d32f2f', 
+                                  fontWeight: 600,
+                                  animation: 'blink 1s infinite',
+                                  '@keyframes blink': {
+                                    '0%': { opacity: 1 },
+                                    '50%': { opacity: 0.3 },
+                                    '100%': { opacity: 1 }
+                                  }
+                                }}>
+                                  Délai dépassé de {Math.abs(daysRemaining)} jour(s)
+                                </Box>
+                              );
+                            } else if (daysRemaining <= 2) {
+                              return (
+                                <Box sx={{ 
+                                  fontSize: '0.95rem', 
+                                  color: '#ff9800', 
+                                  fontWeight: 600 
+                                }}>
+                                  Il reste {daysRemaining} jour(s) - URGENT
+                                </Box>
+                              );
+                            } else {
+                              return (
+                                <Box sx={{ 
+                                  fontSize: '0.95rem', 
+                                  color: '#4caf50', 
+                                  fontWeight: 500 
+                                }}>
+                                  Il reste {daysRemaining} jour(s)
+                                </Box>
+                              );
                             }
-                          })
-                        }}>
-                          {formatDate(m.dateReceptionDefinitive)}
-                          {isReceptionDatePassed(m.dateReceptionDefinitive) && (
-                            <Box component="span" sx={{ ml: 1, fontSize: '0.8rem', fontStyle: 'italic' }}>
-                              (dépassé le délai d'exécution)
-                            </Box>
-                          )}
-                        </Box>
+                          })()
+                        )}
                       </Box>
+                      {m.hasRetenueGarantie && (
+                        <Box>
+                          <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Réception définitive</Box>
+                          <Box sx={{ 
+                            fontSize: '0.95rem',
+                            color: isReceptionDatePassed(m.dateReceptionDefinitive) ? '#d32f2f' : 
+                                   isReceptionDateUrgent(m.dateReceptionDefinitive) ? '#ff9800' : 'inherit',
+                            fontWeight: (isReceptionDateUrgent(m.dateReceptionDefinitive) || isReceptionDatePassed(m.dateReceptionDefinitive)) ? 600 : 'normal',
+                            ...(isReceptionDatePassed(m.dateReceptionDefinitive) && {
+                              animation: 'blink 1s infinite',
+                              '@keyframes blink': {
+                                '0%': { opacity: 1 },
+                                '50%': { opacity: 0.3 },
+                                '100%': { opacity: 1 }
+                              }
+                            })
+                          }}>
+                            {formatDate(m.dateReceptionDefinitive)}
+                            {isReceptionDatePassed(m.dateReceptionDefinitive) && (
+                              <Box component="span" sx={{ ml: 1, fontSize: '0.8rem', fontStyle: 'italic' }}>
+                                (dépassé le délai d'exécution)
+                              </Box>
+                            )}
+                          </Box>
+                        </Box>
+                      )}
+                      
                       <Box>
                         <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Nombre total de matériels</Box>
                         <Box sx={{ fontSize: '0.95rem', fontWeight: 600, color: '#1976d2' }}>{getLinkedCount(m.id)}</Box>
@@ -2104,21 +2370,21 @@ const MarcheList = () => {
                   value={editFormData.dateOrdreService}
                   onChange={e => {
                     const value = e.target.value;
-                    setEditFormData({ ...editFormData, dateOrdreService: value });
+                    let newDateReceptionDefinitive = editFormData.dateReceptionDefinitive;
                     
-                    // Recalculer la date de réception provisoire si le délai est déjà saisi
-                    if (value && editFormData.delaiExecution) {
+                    // Si retenue de garantie est cochée, recalculer la date de réception définitive
+                    if (editFormData.hasRetenueGarantie && value) {
                       const ordreServiceDate = new Date(value);
-                      const receptionProvisoireDate = new Date(ordreServiceDate);
-                      receptionProvisoireDate.setDate(ordreServiceDate.getDate() + parseInt(editFormData.delaiExecution));
-                      
-                      const formattedDate = receptionProvisoireDate.toISOString().split('T')[0];
-                      setEditFormData(prev => ({ 
-                        ...prev, 
-                        dateOrdreService: value,
-                        dateReceptionProvisoire: formattedDate
-                      }));
+                      const receptionDefinitiveDate = new Date(ordreServiceDate);
+                      receptionDefinitiveDate.setFullYear(receptionDefinitiveDate.getFullYear() + 1);
+                      newDateReceptionDefinitive = receptionDefinitiveDate.toISOString().split('T')[0];
                     }
+                    
+                    setEditFormData({ 
+                      ...editFormData, 
+                      dateOrdreService: value,
+                      dateReceptionDefinitive: newDateReceptionDefinitive
+                    });
                   }}
                   InputLabelProps={{ shrink: true }}
                   sx={{ 
@@ -2132,24 +2398,7 @@ const MarcheList = () => {
                   label="Délai d'exécution (jours)"
                   type="number"
                   value={editFormData.delaiExecution}
-                  onChange={e => {
-                    const delai = e.target.value;
-                    setEditFormData({ ...editFormData, delaiExecution: delai });
-                    
-                    // Calculer automatiquement la date de réception provisoire
-                    if (delai && editFormData.dateOrdreService) {
-                      const ordreServiceDate = new Date(editFormData.dateOrdreService);
-                      const receptionProvisoireDate = new Date(ordreServiceDate);
-                      receptionProvisoireDate.setDate(ordreServiceDate.getDate() + parseInt(delai));
-                      
-                      const formattedDate = receptionProvisoireDate.toISOString().split('T')[0];
-                      setEditFormData(prev => ({ 
-                        ...prev, 
-                        delaiExecution: delai,
-                        dateReceptionProvisoire: formattedDate
-                      }));
-                    }
-                  }}
+                  onChange={e => setEditFormData({ ...editFormData, delaiExecution: e.target.value })}
                   inputProps={{ min: 0 }}
                   sx={{ 
                     '& .MuiOutlinedInput-root': { 
@@ -2164,6 +2413,14 @@ const MarcheList = () => {
                   value={editFormData.dateReceptionProvisoire}
                   onChange={e => setEditFormData({ ...editFormData, dateReceptionProvisoire: e.target.value })}
                   InputLabelProps={{ shrink: true }}
+                  error={!isReceptionDateConsistent(editFormData.dateOrdreService, editFormData.delaiExecution, editFormData.dateReceptionProvisoire)}
+                  helperText={
+                    !isReceptionDateConsistent(editFormData.dateOrdreService, editFormData.delaiExecution, editFormData.dateReceptionProvisoire) && 
+                    editFormData.dateOrdreService && 
+                    editFormData.delaiExecution
+                      ? `Date attendue: ${formatDate(getExpectedReceptionDate(editFormData.dateOrdreService, editFormData.delaiExecution))}`
+                      : ''
+                  }
                   sx={{ 
                     '& .MuiOutlinedInput-root': { 
                       borderRadius: 2,
@@ -2171,20 +2428,92 @@ const MarcheList = () => {
                     }
                   }}
                 />
-                <TextField
-                  label="Date réception définitive"
-                  type="date"
-                  value={editFormData.dateReceptionDefinitive}
-                  onChange={e => setEditFormData({ ...editFormData, dateReceptionDefinitive: e.target.value })}
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ 
-                    '& .MuiOutlinedInput-root': { 
-                      borderRadius: 2,
-                      bgcolor: 'white'
+                
+                {/* Retenue de garantie */}
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: 1, 
+                  p: 2, 
+                  border: '1px solid #e0e0e0', 
+                  borderRadius: 2,
+                  bgcolor: '#f9f9f9',
+                  mb: 2
+                }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={editFormData.hasRetenueGarantie}
+                        onChange={e => {
+                          const isChecked = e.target.checked;
+                          let newDateReceptionDefinitive = '';
+                          
+                          // Si on coche la case et qu'il y a une date d'ordre de service, calculer automatiquement
+                          if (isChecked && editFormData.dateOrdreService) {
+                            const ordreServiceDate = new Date(editFormData.dateOrdreService);
+                            const receptionDefinitiveDate = new Date(ordreServiceDate);
+                            receptionDefinitiveDate.setFullYear(receptionDefinitiveDate.getFullYear() + 1);
+                            newDateReceptionDefinitive = receptionDefinitiveDate.toISOString().split('T')[0];
+                          } else if (isChecked) {
+                            // Si on coche mais pas de date d'ordre de service, garder la date existante
+                            newDateReceptionDefinitive = editFormData.dateReceptionDefinitive;
+                          }
+                          
+                          setEditFormData({ 
+                            ...editFormData, 
+                            hasRetenueGarantie: isChecked,
+                            dateReceptionDefinitive: newDateReceptionDefinitive
+                          });
+                        }}
+                        color="primary"
+                      />
                     }
-                  }}
-                />
+                    label="Ce marché a une retenue de garantie"
+                    sx={{ fontWeight: 500 }}
+                  />
+                  
+                  {editFormData.hasRetenueGarantie && (
+                    <TextField
+                      label="Date de réception définitive"
+                      type="date"
+                      value={editFormData.dateReceptionDefinitive}
+                      onChange={e => setEditFormData({ ...editFormData, dateReceptionDefinitive: e.target.value })}
+                      InputLabelProps={{ shrink: true }}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: 2,
+                          bgcolor: 'white'
+                        }
+                      }}
+                    />
+                  )}
+                </Box>
+                
               </Box>
+              
+            {/* Bouton Calculer automatiquement */}
+            {editFormData.dateOrdreService && editFormData.delaiExecution && (
+              <Box sx={{ mb: 3, mt: 4, display: 'flex', justifyContent: 'center' }}>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={() => {
+                    const expectedDate = getExpectedReceptionDate(editFormData.dateOrdreService, editFormData.delaiExecution);
+                    if (expectedDate) {
+                      setEditFormData(prev => ({ ...prev, dateReceptionProvisoire: expectedDate }));
+                    }
+                  }}
+                  sx={{ 
+                    fontSize: '0.875rem',
+                    textTransform: 'none',
+                    px: 3,
+                    py: 1
+                  }}
+                >
+                  Calculer automatiquement la date de réception provisoire
+                </Button>
+              </Box>
+            )}
             </Box>
 
 
@@ -2387,7 +2716,13 @@ const MarcheList = () => {
           <Button 
             onClick={handleUpdateMarche} 
             variant="contained" 
-            disabled={loading || isMarcheNameExists(editFormData.name, editingMarche?.id) || !editFormData.name.trim()}
+            disabled={
+              loading || 
+              isMarcheNameExists(editFormData.name, editingMarche?.id) || 
+              !editFormData.name.trim() ||
+              (editFormData.dateOrdreService && editFormData.delaiExecution && editFormData.dateReceptionProvisoire && 
+               !isReceptionDateConsistent(editFormData.dateOrdreService, editFormData.delaiExecution, editFormData.dateReceptionProvisoire))
+            }
             sx={{ 
               minWidth: 120,
               borderRadius: 2,

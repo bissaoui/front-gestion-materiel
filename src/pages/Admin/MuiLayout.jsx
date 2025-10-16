@@ -34,6 +34,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import StoreIcon from '@mui/icons-material/Store';
+import BusinessIcon from '@mui/icons-material/Business';
 import { useAuth } from '../../context/AuthContext';
 import ListSubheader from '@mui/material/ListSubheader';
 
@@ -94,6 +95,7 @@ const navGroups = [
       { text: 'Modèles', icon: <DevicesOtherIcon />, to: '/modeles' },
       { text: 'Matériels', icon: <DevicesIcon />, to: '/materiels' },
       { text: 'Marchés', icon: <StoreIcon />, to: '/marches' },
+      { text: 'Prestataires', icon: <BusinessIcon />, to: '/prestataires' },
       { text: 'Ajouter Matériel', icon: <AddCircleOutlineIcon />, to: '/ajouter-materiel' },
       { text: 'Affectations', icon: <AssignmentIndIcon />, to: '/affectations' },
       { text: 'Affectations (liste)', icon: <AssignmentIndIcon />, to: '/affectations-liste' },
