@@ -25,38 +25,45 @@ import AgentForm from "./pages/Admin/Agents/AgentForm";
 import AgentsList from "./pages/Admin/Agents/AgentsList";
 import MarcheList from "./pages/Admin/Marche/MarcheList";
 import PrestataireList from "./pages/Admin/Prestataire/PrestataireList";
+import BesoinsExprimes from "./pages/User/BesoinsExprimes";
+import BesoinsExprimesAdmin from "./pages/Admin/BesoinsExprimes/BesoinsExprimesAdmin";
+import LayoutWrapper from "./components/LayoutWrapper";
 
 const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Home />} />
-      <Route path="/profile" element={<MuiLayout children={<Profile />} />} />
-      <Route path="/profile/password" element={<MuiLayout children={<ChangePassword />} />} />
-      <Route path="/profile/edit" element={<MuiLayout children={<ProfileEdit />} />} />
+      
+      {/* Routes communes (utilisent LayoutWrapper pour choisir le bon layout) */}
+      <Route path="/profile" element={<LayoutWrapper><Profile /></LayoutWrapper>} />
+      <Route path="/profile/password" element={<LayoutWrapper><ChangePassword /></LayoutWrapper>} />
+      <Route path="/profile/edit" element={<LayoutWrapper><ProfileEdit /></LayoutWrapper>} />
+      <Route path="/demandes/create" element={<LayoutWrapper><CreateDemande /></LayoutWrapper>} />
+      <Route path="/demandes" element={<LayoutWrapper><MesDemandes /></LayoutWrapper>} />
+      <Route path="/demande/details/:id" element={<LayoutWrapper><DemandeDetails /></LayoutWrapper>} />
+      <Route path="/besoins-exprimes" element={<LayoutWrapper><BesoinsExprimes /></LayoutWrapper>} />
+
+      {/* Routes Admin uniquement */}
       <Route path="/articles" element={<MuiLayout children={<ArticleList />} />} />
       <Route path="/articles/create" element={<MuiLayout children={<CreateArticle />} />} />
-      <Route path="/demandes/create" element={<MuiLayout children={<CreateDemande />} />} />
-      <Route path="/demandes" element={<MuiLayout children={<MesDemandes />} />} />
-      <Route path="/demande/details/:id" element={<MuiLayout children={<DemandeDetails />} />} />
+      <Route path="/types" element={<MuiLayout children={<TypeList />} />} />
+      <Route path="/marques" element={<MuiLayout children={<MarqueList />} />} />
+      <Route path="/modeles" element={<MuiLayout children={<ModeleList />} />} />
+      <Route path="/materiels" element={<MuiLayout children={<MaterielList />} />} />
+      <Route path="/marches" element={<MuiLayout children={<MarcheList />} />} />
+      <Route path="/prestataires" element={<MuiLayout children={<PrestataireList />} />} />
+      <Route path="/affectations" element={<MuiLayout children={<AffectationMateriel />} />} />
+      <Route path="/ajouter-materiel" element={<MuiLayout children={<AjouterMateriel />} />} />
+      <Route path="/affectations-liste" element={<MuiLayout children={<AffectationsList />} />} />
+      <Route path="/admin-dashboard" element={<MuiLayout children={<AdminDashboard />} />} />
+      <Route path="/modern-dashboard" element={<MuiLayout children={<ModernDashboard />} />} />
+      <Route path="/agents" element={<MuiLayout children={<AgentsList />} />} />
+      <Route path="/agents/create" element={<MuiLayout children={<AgentForm />} />} />
+      <Route path="/admin/besoins-exprimes" element={<MuiLayout children={<BesoinsExprimesAdmin />} />} />
 
-      <Route path="*" element={<NotFound />} />
       <Route path="/mui-layout" element={<MuiLayout />} />
-      {/* <Route element={<ProtectedRoute requiredRole="ADMIN" />}> */}
-        <Route path="/types" element={<MuiLayout children={<TypeList />} />} />
-        <Route path="/marques" element={<MuiLayout children={<MarqueList />} />} />
-        <Route path="/modeles" element={<MuiLayout children={<ModeleList />} />} />
-        <Route path="/materiels" element={<MuiLayout children={<MaterielList />} />} />
-        <Route path="/marches" element={<MuiLayout children={<MarcheList />} />} />
-        <Route path="/prestataires" element={<MuiLayout children={<PrestataireList />} />} />
-        <Route path="/affectations" element={<MuiLayout children={<AffectationMateriel />} />} />
-        <Route path="/ajouter-materiel" element={<MuiLayout children={<AjouterMateriel />} />} />
-        <Route path="/affectations-liste" element={<MuiLayout children={<AffectationsList />} />} />
-        <Route path="/admin-dashboard" element={<MuiLayout children={<AdminDashboard />} />} />
-        <Route path="/modern-dashboard" element={<MuiLayout children={<ModernDashboard />} />} />
-        <Route path="/agents" element={<MuiLayout children={<AgentsList />} />} />
-        <Route path="/agents/create" element={<MuiLayout children={<AgentForm />} />} />
-      {/* </Route> */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 };

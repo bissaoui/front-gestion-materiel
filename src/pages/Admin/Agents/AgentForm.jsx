@@ -3,6 +3,7 @@ import { TextField, Button, MenuItem, Grid, Alert, CircularProgress, Tooltip, Ty
 import { createAgent, updateAgent, getDirections, getDepartements, getServices } from '../../../api/agents';
 
 const roles = ['ADMIN', 'USER'];
+const postes = ['cadre', 'chef de service', 'chef de département', 'directeur'];
 
 const AgentForm = ({ agent, onSuccess, onCancel }) => {
   const [form, setForm] = useState({
@@ -230,14 +231,22 @@ const AgentForm = ({ agent, onSuccess, onCancel }) => {
           />
         </Grid>
         <Grid item xs={12} sm={6}>
-          <TextField 
-            label="Poste" 
-            name="poste" 
-            value={form.poste} 
-            onChange={handleChange} 
-            fullWidth 
+          <TextField
+            select
+            label="Poste"
+            name="poste"
+            value={form.poste || ''}
+            onChange={handleChange}
+            fullWidth
             size="small"
-          />
+          >
+            <MenuItem value="">Sélectionner un poste</MenuItem>
+            {postes.map(poste => (
+              <MenuItem key={poste} value={poste}>
+                {poste.charAt(0).toUpperCase() + poste.slice(1)}
+              </MenuItem>
+            ))}
+          </TextField>
         </Grid>
         <Grid item xs={12} sm={6}>
           <TextField

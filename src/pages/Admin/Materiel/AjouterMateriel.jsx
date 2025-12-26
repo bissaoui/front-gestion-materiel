@@ -58,15 +58,24 @@ const AjouterMateriel = () => {
     try {
       await addMateriel(body);
       setSuccess('Matériel ajouté avec succès !');
+      // Ne réinitialiser que le numéro de série, garder les autres champs
       setNumeroSerie('');
-      setSelectedType('');
-      setSelectedMarque('');
-      setSelectedModele('');
-      setSelectedMarche('');
+      // Les autres champs (Type, Marque, Modèle, Marché) restent remplis
     } catch (e) {
       setError(e.response?.data?.message || "Erreur lors de l'ajout du matériel.");
     }
     setLoading(false);
+  };
+
+  // Fonction pour réinitialiser tous les champs
+  const handleReset = () => {
+    setNumeroSerie('');
+    setSelectedType('');
+    setSelectedMarque('');
+    setSelectedModele('');
+    setSelectedMarche('');
+    setError('');
+    setSuccess('');
   };
 
   // Afficher les erreurs de chargement des données
@@ -99,6 +108,7 @@ const AjouterMateriel = () => {
         success={success}
         onSubmit={handleSubmit}
         submitLabel="Ajouter le matériel"
+        onReset={handleReset}
       />
     </CardLayout>
   );

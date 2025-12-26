@@ -21,7 +21,13 @@ import {
   Select,
   MenuItem,
   InputLabel,
-  FormControl
+  FormControl,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Typography,
+  Autocomplete
 } from '@mui/material';
 import CardLayout from '../../../components/CardLayout';
 import navTabs from "../../../components/adminNavTabs";
@@ -44,6 +50,19 @@ const AffectationsList = () => {
   const [success, setSuccess] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  // États pour le modal d'affectation
+  const [openModal, setOpenModal] = useState(false);
+  const [affectationLoading, setAffectationLoading] = useState(false);
+  const [affectationError, setAffectationError] = useState('');
+  const [affectationSuccess, setAffectationSuccess] = useState('');
+  const [selectedAgentAffectation, setSelectedAgentAffectation] = useState('');
+  const [selectedTypeAffectation, setSelectedTypeAffectation] = useState('');
+  const [selectedMarqueAffectation, setSelectedMarqueAffectation] = useState('');
+  const [selectedModeleAffectation, setSelectedModeleAffectation] = useState('');
+  const [selectedMaterielAffectation, setSelectedMaterielAffectation] = useState('');
+  const [materielsDisponibles, setMaterielsDisponibles] = useState([]);
+  const [dateAffectation, setDateAffectation] = useState(new Date().toISOString().slice(0, 10));
 
   useEffect(() => {
     setLoading(true);
@@ -242,6 +261,116 @@ const AffectationsList = () => {
     });
   }, [modeles, selectedType, selectedMarque]);
 
+  // Calcul des marques filtrées pour le modal d'affectation
+  const filteredMarquesAffectation = React.useMemo(() => {
+    if (!selectedTypeAffectation) return marques;
+    const marqueIds = new Set(
+      materiels.filter(m => m.typeMaterielId === Number(selectedTypeAffectation)).map(m => m.marqueId)
+    );
+    return marques.filter(ma => marqueIds.has(ma.id));
+  }, [marques, materiels, selectedTypeAffectation]);
+
+  // Calcul des modèles filtrés pour le modal d'affectation
+  const filteredModelesAffectation = React.useMemo(() => {
+    return modeles.filter(mo => {
+      const matchType = selectedTypeAffectation ? mo.typeMaterielId === Number(selectedTypeAffectation) : true;
+      const matchMarque = selectedMarqueAffectation ? mo.marqueId === Number(selectedMarqueAffectation) : true;
+      return matchType && matchMarque;
+    });
+  }, [modeles, selectedTypeAffectation, selectedMarqueAffectation]);
+
+  // Charger les matériels disponibles quand le modèle change dans le modal
+  useEffect(() => {
+    if (selectedModeleAffectation) {
+      const disponibles = materiels.filter(
+        m => m.modeleId === Number(selectedModeleAffectation) && !m.agentId
+      );
+      setMaterielsDisponibles(disponibles);
+    } else {
+      setMaterielsDisponibles([]);
+      setSelectedMaterielAffectation('');
+    }
+  }, [selectedModeleAffectation, materiels]);
+
+  // Réinitialiser les sélections du modal quand le type change
+  useEffect(() => {
+    if (!selectedTypeAffectation) {
+      setSelectedMarqueAffectation('');
+    }
+    setSelectedModeleAffectation('');
+    setMaterielsDisponibles([]);
+    setSelectedMaterielAffectation('');
+  }, [selectedTypeAffectation]);
+
+  // Réinitialiser les modèles et matériels quand la marque change dans le modal
+  useEffect(() => {
+    if (!selectedMarqueAffectation) {
+      setSelectedModeleAffectation('');
+    }
+    setMaterielsDisponibles([]);
+    setSelectedMaterielAffectation('');
+  }, [selectedMarqueAffectation]);
+
+  // Fonction pour ouvrir le modal
+  const handleOpenModal = () => {
+    setOpenModal(true);
+    setAffectationError('');
+    setAffectationSuccess('');
+    setSelectedAgentAffectation('');
+    setSelectedTypeAffectation('');
+    setSelectedMarqueAffectation('');
+    setSelectedModeleAffectation('');
+    setSelectedMaterielAffectation('');
+    setDateAffectation(new Date().toISOString().slice(0, 10));
+  };
+
+  // Fonction pour fermer le modal
+  const handleCloseModal = () => {
+    setOpenModal(false);
+    setAffectationError('');
+    setAffectationSuccess('');
+    setSelectedAgentAffectation('');
+    setSelectedTypeAffectation('');
+    setSelectedMarqueAffectation('');
+    setSelectedModeleAffectation('');
+    setSelectedMaterielAffectation('');
+    setMaterielsDisponibles([]);
+  };
+
+  // Fonction pour soumettre l'affectation
+  const handleSubmitAffectation = async () => {
+    setAffectationError('');
+    setAffectationSuccess('');
+    
+    if (!selectedAgentAffectation || !selectedMaterielAffectation) {
+      setAffectationError('Veuillez sélectionner un agent et un matériel.');
+      return;
+    }
+
+    setAffectationLoading(true);
+    try {
+      await axios.put(
+        `${API_URL}/api/materiels/${selectedMaterielAffectation}/affecter/${selectedAgentAffectation}`,
+        { dateAffectation: `${dateAffectation}T00:00:00` },
+        { headers: { Authorization: `Bearer ${getToken()}` } }
+      );
+      setAffectationSuccess('Affectation réussie !');
+      setSuccess('Affectation réussie !');
+      
+      // Rafraîchir la liste des matériels
+      const res = await axios.get(`${API_URL}/api/materiels`, { headers: { Authorization: `Bearer ${getToken()}` } });
+      setMateriels(Array.isArray(res.data) ? res.data : []);
+      
+      // Fermer le modal après un court délai
+      setTimeout(() => {
+        handleCloseModal();
+      }, 1500);
+    } catch (err) {
+      setAffectationError(err.response?.data?.message || "Erreur lors de l'affectation.");
+    }
+    setAffectationLoading(false);
+  };
+
   // Ajout d'une constante pour le menu déroulant large
   const selectMenuProps = {
     PaperProps: {
@@ -258,8 +387,8 @@ const AffectationsList = () => {
       navTabs={navTabs}
       currentPath={window.location.pathname}
     >
-      <Box mb={2}>
-        <Grid container spacing={2} alignItems="center">
+      <Box mb={2} display="flex" justifyContent="space-between" alignItems="center">
+        <Grid container spacing={2} alignItems="center" sx={{ flex: 1 }}>
           <Grid item xs={12} sm={4} md={2}>
             <TextField
               label="Recherche"
@@ -338,6 +467,16 @@ const AffectationsList = () => {
             </FormControl>
           </Grid>
         </Grid>
+        <Box sx={{ ml: 2 }}>
+          <MuiButton
+            variant="contained"
+            color="primary"
+            onClick={handleOpenModal}
+            sx={{ minWidth: 180 }}
+          >
+            Nouvelle affectation
+          </MuiButton>
+        </Box>
       </Box>
       {success && <Alert variant="success">{success}</Alert>}
       {error && <Alert variant="danger">{error}</Alert>}
@@ -417,6 +556,265 @@ const AffectationsList = () => {
           />
         </TableContainer>
       )}
+
+      {/* Modal pour créer une affectation */}
+      <Dialog
+        open={openModal}
+        onClose={handleCloseModal}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            minWidth: '550px',
+            width: '100%',
+            maxWidth: '650px'
+          }
+        }}
+      >
+        <DialogTitle>
+          <Typography variant="h6" component="div">
+            Nouvelle affectation
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ minWidth: '500px', width: '100%' }}>
+          <Box sx={{ pt: 2 }}>
+            {affectationSuccess && (
+              <Alert severity="success" sx={{ mb: 2 }}>{affectationSuccess}</Alert>
+            )}
+            {affectationError && (
+              <Alert severity="error" sx={{ mb: 2 }}>{affectationError}</Alert>
+            )}
+            
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              <Autocomplete
+                options={agents}
+                getOptionLabel={(option) => `${option.nom} ${option.username}`}
+                value={selectedAgentAffectation ? agents.find(a => a.id === Number(selectedAgentAffectation)) || null : null}
+                onChange={(event, newValue) => {
+                  setSelectedAgentAffectation(newValue ? newValue.id.toString() : '');
+                }}
+                fullWidth
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Agent *"
+                    placeholder="Rechercher par nom..."
+                    required
+                    fullWidth
+                    InputLabelProps={{
+                      ...params.InputLabelProps,
+                      shrink: true,
+                      sx: { 
+                        whiteSpace: 'nowrap',
+                        overflow: 'visible',
+                        textOverflow: 'clip',
+                        maxWidth: '100%'
+                      }
+                    }}
+                    sx={{
+                      '& .MuiInputLabel-root': {
+                        whiteSpace: 'nowrap',
+                        overflow: 'visible',
+                        textOverflow: 'clip'
+                      }
+                    }}
+                  />
+                )}
+                noOptionsText="Aucun agent trouvé"
+                isOptionEqualToValue={(option, value) => option?.id === value?.id}
+              />
+              
+              <Autocomplete
+                options={types}
+                getOptionLabel={(option) => option.nom}
+                value={selectedTypeAffectation ? types.find(t => t.id === Number(selectedTypeAffectation)) || null : null}
+                onChange={(event, newValue) => {
+                  setSelectedTypeAffectation(newValue ? newValue.id.toString() : '');
+                }}
+                fullWidth
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Type *"
+                    placeholder="Rechercher un type..."
+                    required
+                    fullWidth
+                    InputLabelProps={{
+                      ...params.InputLabelProps,
+                      shrink: true,
+                      sx: { 
+                        whiteSpace: 'nowrap',
+                        overflow: 'visible',
+                        textOverflow: 'clip'
+                      }
+                    }}
+                    sx={{
+                      '& .MuiInputLabel-root': {
+                        whiteSpace: 'nowrap',
+                        overflow: 'visible',
+                        textOverflow: 'clip'
+                      }
+                    }}
+                  />
+                )}
+                noOptionsText="Aucun type trouvé"
+                isOptionEqualToValue={(option, value) => option?.id === value?.id}
+              />
+              
+              <Autocomplete
+                options={filteredMarquesAffectation}
+                getOptionLabel={(option) => option.nom}
+                value={selectedMarqueAffectation ? filteredMarquesAffectation.find(m => m.id === Number(selectedMarqueAffectation)) || null : null}
+                onChange={(event, newValue) => {
+                  setSelectedMarqueAffectation(newValue ? newValue.id.toString() : '');
+                }}
+                disabled={!selectedTypeAffectation}
+                fullWidth
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Marque *"
+                    placeholder="Rechercher une marque..."
+                    required
+                    fullWidth
+                    InputLabelProps={{
+                      ...params.InputLabelProps,
+                      shrink: true,
+                      sx: { 
+                        whiteSpace: 'nowrap',
+                        overflow: 'visible',
+                        textOverflow: 'clip'
+                      }
+                    }}
+                    sx={{
+                      '& .MuiInputLabel-root': {
+                        whiteSpace: 'nowrap',
+                        overflow: 'visible',
+                        textOverflow: 'clip'
+                      }
+                    }}
+                  />
+                )}
+                noOptionsText="Aucune marque trouvée"
+                isOptionEqualToValue={(option, value) => option?.id === value?.id}
+              />
+              
+              <Autocomplete
+                options={filteredModelesAffectation}
+                getOptionLabel={(option) => option.nom}
+                value={selectedModeleAffectation ? filteredModelesAffectation.find(m => m.id === Number(selectedModeleAffectation)) || null : null}
+                onChange={(event, newValue) => {
+                  setSelectedModeleAffectation(newValue ? newValue.id.toString() : '');
+                }}
+                disabled={!selectedMarqueAffectation}
+                fullWidth
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Modèle *"
+                    placeholder="Rechercher un modèle..."
+                    required
+                    fullWidth
+                    InputLabelProps={{
+                      ...params.InputLabelProps,
+                      shrink: true,
+                      sx: { 
+                        whiteSpace: 'nowrap',
+                        overflow: 'visible',
+                        textOverflow: 'clip'
+                      }
+                    }}
+                    sx={{
+                      '& .MuiInputLabel-root': {
+                        whiteSpace: 'nowrap',
+                        overflow: 'visible',
+                        textOverflow: 'clip'
+                      }
+                    }}
+                  />
+                )}
+                noOptionsText="Aucun modèle trouvé"
+                isOptionEqualToValue={(option, value) => option?.id === value?.id}
+              />
+              
+              <Autocomplete
+                options={materielsDisponibles}
+                getOptionLabel={(option) => option.numeroSerie || ''}
+                value={selectedMaterielAffectation ? materielsDisponibles.find(m => m.id === Number(selectedMaterielAffectation)) || null : null}
+                onChange={(event, newValue) => {
+                  setSelectedMaterielAffectation(newValue ? newValue.id.toString() : '');
+                }}
+                disabled={!selectedModeleAffectation || materielsDisponibles.length === 0}
+                fullWidth
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Matériel (Numéro de série) *"
+                    placeholder="Rechercher un matériel..."
+                    required
+                    fullWidth
+                    InputLabelProps={{
+                      ...params.InputLabelProps,
+                      shrink: true,
+                      sx: { 
+                        whiteSpace: 'nowrap',
+                        overflow: 'visible',
+                        textOverflow: 'clip'
+                      }
+                    }}
+                    sx={{
+                      '& .MuiInputLabel-root': {
+                        whiteSpace: 'nowrap',
+                        overflow: 'visible',
+                        textOverflow: 'clip'
+                      }
+                    }}
+                  />
+                )}
+                noOptionsText={materielsDisponibles.length === 0 ? "Aucun matériel disponible" : "Aucun matériel trouvé"}
+                isOptionEqualToValue={(option, value) => option?.id === value?.id}
+              />
+              
+              <TextField
+                label="Date d'affectation *"
+                type="date"
+                value={dateAffectation}
+                onChange={e => setDateAffectation(e.target.value)}
+                fullWidth
+                InputLabelProps={{ 
+                  shrink: true,
+                  sx: { 
+                    whiteSpace: 'nowrap',
+                    overflow: 'visible',
+                    textOverflow: 'clip'
+                  }
+                }}
+                sx={{
+                  '& .MuiInputLabel-root': {
+                    whiteSpace: 'nowrap',
+                    overflow: 'visible',
+                    textOverflow: 'clip'
+                  }
+                }}
+                required
+              />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <MuiButton onClick={handleCloseModal} disabled={affectationLoading}>
+            Annuler
+          </MuiButton>
+          <MuiButton
+            onClick={handleSubmitAffectation}
+            variant="contained"
+            color="primary"
+            disabled={affectationLoading || !selectedAgentAffectation || !selectedMaterielAffectation}
+          >
+            {affectationLoading ? <CircularProgress size={24} /> : 'Affecter'}
+          </MuiButton>
+        </DialogActions>
+      </Dialog>
     </CardLayout>
   );
 };

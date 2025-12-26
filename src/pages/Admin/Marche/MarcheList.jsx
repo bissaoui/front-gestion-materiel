@@ -1095,6 +1095,28 @@ const MarcheList = () => {
         errors.push(errorMsg);
         fieldErrors.dateReceptionProvisoire = errorMsg;
       }
+      
+      // Validation: date ordre de service < date réception provisoire < date ordre de service + délais
+      if (formData.dateOrdreService && formData.delaiExecution) {
+        const ordreServiceDate = new Date(formData.dateOrdreService);
+        const maxReceptionDate = new Date(ordreServiceDate);
+        maxReceptionDate.setDate(ordreServiceDate.getDate() + parseInt(formData.delaiExecution));
+        
+        // Normaliser les dates
+        ordreServiceDate.setHours(0, 0, 0, 0);
+        maxReceptionDate.setHours(0, 0, 0, 0);
+        receptionProvisoireDate.setHours(0, 0, 0, 0);
+        
+        if (receptionProvisoireDate.getTime() <= ordreServiceDate.getTime()) {
+          const errorMsg = 'La date réception provisoire doit être postérieure à la date ordre de service';
+          errors.push(errorMsg);
+          fieldErrors.dateReceptionProvisoire = errorMsg;
+        } else if (receptionProvisoireDate.getTime() > maxReceptionDate.getTime()) {
+          const errorMsg = `La date réception provisoire ne doit pas dépasser ${formatDate(maxReceptionDate.toISOString().split('T')[0])} (date ordre de service + délais)`;
+          errors.push(errorMsg);
+          fieldErrors.dateReceptionProvisoire = errorMsg;
+        }
+      }
     }
     
     if (formData.dateReceptionDefinitive) {
@@ -1166,16 +1188,21 @@ const MarcheList = () => {
     if (!dateOrdreService || !delaiExecution || !dateReceptionProvisoire) return true;
     
     const ordreServiceDate = new Date(dateOrdreService);
-    const calculatedReceptionDate = new Date(ordreServiceDate);
-    calculatedReceptionDate.setDate(ordreServiceDate.getDate() + parseInt(delaiExecution));
+    const maxReceptionDate = new Date(ordreServiceDate);
+    maxReceptionDate.setDate(ordreServiceDate.getDate() + parseInt(delaiExecution));
     
     const actualReceptionDate = new Date(dateReceptionProvisoire);
     
     // Normaliser les dates
-    calculatedReceptionDate.setHours(0, 0, 0, 0);
+    ordreServiceDate.setHours(0, 0, 0, 0);
+    maxReceptionDate.setHours(0, 0, 0, 0);
     actualReceptionDate.setHours(0, 0, 0, 0);
     
-    return calculatedReceptionDate.getTime() === actualReceptionDate.getTime();
+    // Vérifier que: date ordre de service < date réception provisoire <= date ordre de service + délais
+    const isAfterOrdreService = actualReceptionDate.getTime() > ordreServiceDate.getTime();
+    const isBeforeOrEqualMaxDate = actualReceptionDate.getTime() <= maxReceptionDate.getTime();
+    
+    return isAfterOrdreService && isBeforeOrEqualMaxDate;
   };
 
   // Fonction pour calculer la date de réception attendue
@@ -1263,20 +1290,36 @@ const MarcheList = () => {
     // Vérifier la cohérence de la date de réception provisoire
     if (editFormData.dateOrdreService && editFormData.delaiExecution && editFormData.dateReceptionProvisoire) {
       if (!isReceptionDateConsistent(editFormData.dateOrdreService, editFormData.delaiExecution, editFormData.dateReceptionProvisoire)) {
-        setError('La date de réception provisoire ne correspond pas au calcul (date ordre de service + délai d\'exécution). Veuillez corriger ou utiliser le bouton "Calculer automatiquement".');
+        const maxDate = getExpectedReceptionDate(editFormData.dateOrdreService, editFormData.delaiExecution);
+        setError(`La date de réception provisoire doit être entre ${formatDate(editFormData.dateOrdreService)} et ${formatDate(maxDate)}. Veuillez corriger.`);
         return;
       }
     }
 
     setLoading(true);
     try {
+      // Calculer automatiquement la date de réception définitive si elle n'est pas définie
+      let dateReceptionDefinitive = editFormData.dateReceptionDefinitive;
+      if (!dateReceptionDefinitive) {
+        if (editFormData.hasRetenueGarantie && editFormData.dateOrdreService) {
+          // Si retenue de garantie : date ordre de service + 1 an
+          const ordreServiceDate = new Date(editFormData.dateOrdreService);
+          const receptionDefinitiveDate = new Date(ordreServiceDate);
+          receptionDefinitiveDate.setFullYear(receptionDefinitiveDate.getFullYear() + 1);
+          dateReceptionDefinitive = receptionDefinitiveDate.toISOString().split('T')[0];
+        } else if (!editFormData.hasRetenueGarantie && editFormData.dateReceptionProvisoire) {
+          // Sinon : date réception provisoire
+          dateReceptionDefinitive = editFormData.dateReceptionProvisoire;
+        }
+      }
+      
       const payload = {
         name: editFormData.name.trim(),
         date: editFormData.date,
         dateOrdreService: editFormData.dateOrdreService || null,
         delaiExecution: editFormData.delaiExecution ? parseInt(editFormData.delaiExecution) : null,
         dateReceptionProvisoire: editFormData.dateReceptionProvisoire || null,
-        dateReceptionDefinitive: editFormData.dateReceptionDefinitive || null,
+        dateReceptionDefinitive: dateReceptionDefinitive || null,
         typeMarche: editFormData.typeMarche,
         prestataireId: editFormData.prestataireId || null,
         hasRetenueGarantie: editFormData.hasRetenueGarantie
@@ -1354,13 +1397,28 @@ const MarcheList = () => {
     
     setLoading(true);
     try {
+      // Calculer automatiquement la date de réception définitive si elle n'est pas définie
+      let dateReceptionDefinitive = newMarche.dateReceptionDefinitive;
+      if (!dateReceptionDefinitive) {
+        if (newMarche.hasRetenueGarantie && newMarche.dateOrdreService) {
+          // Si retenue de garantie : date ordre de service + 1 an
+          const ordreServiceDate = new Date(newMarche.dateOrdreService);
+          const receptionDefinitiveDate = new Date(ordreServiceDate);
+          receptionDefinitiveDate.setFullYear(receptionDefinitiveDate.getFullYear() + 1);
+          dateReceptionDefinitive = receptionDefinitiveDate.toISOString().split('T')[0];
+        } else if (!newMarche.hasRetenueGarantie && newMarche.dateReceptionProvisoire) {
+          // Sinon : date réception provisoire
+          dateReceptionDefinitive = newMarche.dateReceptionProvisoire;
+        }
+      }
+      
       const payload = { 
         name: newMarche.name.trim(), 
         date: newMarche.date,
         dateOrdreService: newMarche.dateOrdreService || null,
         delaiExecution: newMarche.delaiExecution ? parseInt(newMarche.delaiExecution) : null,
         dateReceptionProvisoire: newMarche.dateReceptionProvisoire || null,
-        dateReceptionDefinitive: newMarche.dateReceptionDefinitive || null,
+        dateReceptionDefinitive: dateReceptionDefinitive || null,
         typeMarche: newMarche.typeMarche,
         prestataireId: newMarche.prestataireId || null,
         hasRetenueGarantie: newMarche.hasRetenueGarantie
@@ -1487,6 +1545,38 @@ const MarcheList = () => {
     
     // Trier selon le critère et l'ordre sélectionnés
     return filtered.sort((a, b) => {
+      // D'abord, vérifier si le délai est dépassé pour chaque marché
+      // Ne considérer comme dépassé que si la date de réception provisoire n'est pas saisie
+      const daysRemainingA = calculateDaysRemaining(a.dateOrdreService, a.delaiExecution);
+      const daysRemainingB = calculateDaysRemaining(b.dateOrdreService, b.delaiExecution);
+      const isDelayedA = !a.dateReceptionProvisoire && daysRemainingA !== null && daysRemainingA < 0;
+      const isDelayedB = !b.dateReceptionProvisoire && daysRemainingB !== null && daysRemainingB < 0;
+      
+      // Vérifier si urgent (≤ 2 jours restants mais pas dépassé)
+      const isUrgentA = !a.dateReceptionProvisoire && daysRemainingA !== null && daysRemainingA >= 0 && daysRemainingA <= 2;
+      const isUrgentB = !b.dateReceptionProvisoire && daysRemainingB !== null && daysRemainingB >= 0 && daysRemainingB <= 2;
+      
+      // Prioriser : dépassés (rouge) > urgents (orange) > autres
+      // Si a est dépassé et b ne l'est pas
+      if (isDelayedA && !isDelayedB) {
+        return -1; // a avant b
+      }
+      // Si b est dépassé et a ne l'est pas
+      if (!isDelayedA && isDelayedB) {
+        return 1; // b avant a
+      }
+      
+      // Si les deux sont dépassés ou aucun n'est dépassé, vérifier les urgents
+      // Si a est urgent et b ne l'est pas (et aucun n'est dépassé)
+      if (!isDelayedA && !isDelayedB && isUrgentA && !isUrgentB) {
+        return -1; // a avant b
+      }
+      // Si b est urgent et a ne l'est pas (et aucun n'est dépassé)
+      if (!isDelayedA && !isDelayedB && !isUrgentA && isUrgentB) {
+        return 1; // b avant a
+      }
+      
+      // Si les deux ont le même statut (dépassé/urgent/normal), trier selon le critère sélectionné
       if (sortBy === 'date') {
         const dateA = new Date(a.date);
         const dateB = new Date(b.date);
@@ -1610,14 +1700,20 @@ const MarcheList = () => {
             value={newMarche.dateOrdreService} 
             onChange={e => {
               const value = e.target.value;
-              let newDateReceptionDefinitive = newMarche.dateReceptionDefinitive;
+              let newDateReceptionDefinitive = '';
               
-              // Si retenue de garantie est cochée, recalculer la date de réception définitive
-              if (newMarche.hasRetenueGarantie && value) {
-                const ordreServiceDate = new Date(value);
-                const receptionDefinitiveDate = new Date(ordreServiceDate);
-                receptionDefinitiveDate.setFullYear(receptionDefinitiveDate.getFullYear() + 1);
-                newDateReceptionDefinitive = receptionDefinitiveDate.toISOString().split('T')[0];
+              // Calculer la date de réception définitive selon la retenue de garantie
+              if (value) {
+                if (newMarche.hasRetenueGarantie) {
+                  // Si retenue de garantie : date ordre de service + 1 an
+                  const ordreServiceDate = new Date(value);
+                  const receptionDefinitiveDate = new Date(ordreServiceDate);
+                  receptionDefinitiveDate.setFullYear(receptionDefinitiveDate.getFullYear() + 1);
+                  newDateReceptionDefinitive = receptionDefinitiveDate.toISOString().split('T')[0];
+                } else if (newMarche.dateReceptionProvisoire) {
+                  // Sinon : date réception provisoire
+                  newDateReceptionDefinitive = newMarche.dateReceptionProvisoire;
+                }
               }
               
               setNewMarche({ 
@@ -1662,7 +1758,19 @@ const MarcheList = () => {
             value={newMarche.dateReceptionProvisoire} 
             onChange={e => {
               const value = e.target.value;
-              setNewMarche({ ...newMarche, dateReceptionProvisoire: value });
+              let newDateReceptionDefinitive = newMarche.dateReceptionDefinitive;
+              
+              // Si pas de retenue de garantie, mettre à jour la date de réception définitive
+              if (!newMarche.hasRetenueGarantie && value) {
+                newDateReceptionDefinitive = value;
+              }
+              
+              setNewMarche({ 
+                ...newMarche, 
+                dateReceptionProvisoire: value,
+                dateReceptionDefinitive: newDateReceptionDefinitive
+              });
+              
               // Validation en temps réel
               const error = validateField('réception provisoire', value);
               setFieldErrors(prev => ({ ...prev, dateReceptionProvisoire: error }));
@@ -1673,8 +1781,9 @@ const MarcheList = () => {
               fieldErrors.dateReceptionProvisoire || 
               (!isReceptionDateConsistent(newMarche.dateOrdreService, newMarche.delaiExecution, newMarche.dateReceptionProvisoire) && 
                newMarche.dateOrdreService && 
-               newMarche.delaiExecution
-                ? `Date attendue: ${formatDate(getExpectedReceptionDate(newMarche.dateOrdreService, newMarche.delaiExecution))}`
+               newMarche.delaiExecution && 
+               newMarche.dateReceptionProvisoire
+                ? `La date doit être entre ${formatDate(newMarche.dateOrdreService)} et ${formatDate(getExpectedReceptionDate(newMarche.dateOrdreService, newMarche.delaiExecution))}`
                 : '')
             }
             sx={{ 
@@ -1704,15 +1813,16 @@ const MarcheList = () => {
                     const isChecked = e.target.checked;
                     let newDateReceptionDefinitive = '';
                     
-                    // Si on coche la case et qu'il y a une date d'ordre de service, calculer automatiquement
+                    // Calculer la date de réception définitive selon la retenue de garantie
                     if (isChecked && newMarche.dateOrdreService) {
+                      // Si retenue de garantie : date ordre de service + 1 an
                       const ordreServiceDate = new Date(newMarche.dateOrdreService);
                       const receptionDefinitiveDate = new Date(ordreServiceDate);
                       receptionDefinitiveDate.setFullYear(receptionDefinitiveDate.getFullYear() + 1);
                       newDateReceptionDefinitive = receptionDefinitiveDate.toISOString().split('T')[0];
-                    } else if (isChecked) {
-                      // Si on coche mais pas de date d'ordre de service, garder la date existante
-                      newDateReceptionDefinitive = newMarche.dateReceptionDefinitive;
+                    } else if (!isChecked && newMarche.dateReceptionProvisoire) {
+                      // Sinon : date réception provisoire
+                      newDateReceptionDefinitive = newMarche.dateReceptionProvisoire;
                     }
                     
                     setNewMarche({ 
@@ -1727,30 +1837,6 @@ const MarcheList = () => {
               label="Ce marché a une retenue de garantie"
               sx={{ fontWeight: 500 }}
             />
-            
-            {newMarche.hasRetenueGarantie && (
-              <TextField
-                label="Date de réception définitive"
-                type="date"
-                value={newMarche.dateReceptionDefinitive}
-                onChange={e => {
-                  const value = e.target.value;
-                  setNewMarche({ ...newMarche, dateReceptionDefinitive: value });
-                  // Validation en temps réel
-                  const error = validateField('réception définitive', value);
-                  setFieldErrors(prev => ({ ...prev, dateReceptionDefinitive: error }));
-                }}
-                InputLabelProps={{ shrink: true }}
-                error={!!fieldErrors.dateReceptionDefinitive}
-                helperText={fieldErrors.dateReceptionDefinitive}
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
-                    bgcolor: 'white',
-                    borderRadius: 1
-                  }
-                }}
-              />
-            )}
           </Box>
         </Box>
         
@@ -1929,7 +2015,36 @@ const MarcheList = () => {
                         </IconButton>
                       </TableCell>
                       <TableCell>{m.id}</TableCell>
-                      <TableCell>{m.name}</TableCell>
+                      <TableCell>
+                        {(() => {
+                          // Calculer les jours restants
+                          const daysRemaining = calculateDaysRemaining(m.dateOrdreService, m.delaiExecution);
+                          // Dépassé : délai dépassé et pas de date de réception provisoire
+                          const isDelayed = !m.dateReceptionProvisoire && daysRemaining !== null && daysRemaining < 0;
+                          // Urgent : ≤ 2 jours restants mais pas dépassé
+                          const isUrgent = !m.dateReceptionProvisoire && daysRemaining !== null && daysRemaining >= 0 && daysRemaining <= 2;
+                          
+                          return (
+                            <Box
+                              component="span"
+                              sx={{
+                                color: isDelayed ? '#d32f2f' : isUrgent ? '#ff9800' : 'inherit',
+                                fontWeight: (isDelayed || isUrgent) ? 600 : 'normal',
+                                ...((isDelayed || isUrgent) && {
+                                  animation: 'blink 1s infinite',
+                                  '@keyframes blink': {
+                                    '0%': { opacity: 1 },
+                                    '50%': { opacity: 0.3 },
+                                    '100%': { opacity: 1 }
+                                  }
+                                })
+                              }}
+                            >
+                              {m.name}
+                            </Box>
+                          );
+                        })()}
+                      </TableCell>
                       <TableCell>{formatDate(m.date)}</TableCell>
                       <TableCell>{getLinkedCount(m.id)}</TableCell>
                       <TableCell align="right">
@@ -2077,32 +2192,21 @@ const MarcheList = () => {
                           })()
                         )}
                       </Box>
-                      {m.hasRetenueGarantie && (
-                        <Box>
-                          <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Réception définitive</Box>
+                      <Box>
+                        <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Réception définitive</Box>
+                        {m.dateReceptionDefinitive ? (
                           <Box sx={{ 
                             fontSize: '0.95rem',
-                            color: isReceptionDatePassed(m.dateReceptionDefinitive) ? '#d32f2f' : 
-                                   isReceptionDateUrgent(m.dateReceptionDefinitive) ? '#ff9800' : 'inherit',
-                            fontWeight: (isReceptionDateUrgent(m.dateReceptionDefinitive) || isReceptionDatePassed(m.dateReceptionDefinitive)) ? 600 : 'normal',
-                            ...(isReceptionDatePassed(m.dateReceptionDefinitive) && {
-                              animation: 'blink 1s infinite',
-                              '@keyframes blink': {
-                                '0%': { opacity: 1 },
-                                '50%': { opacity: 0.3 },
-                                '100%': { opacity: 1 }
-                              }
-                            })
+                            color: 'inherit'
                           }}>
                             {formatDate(m.dateReceptionDefinitive)}
-                            {isReceptionDatePassed(m.dateReceptionDefinitive) && (
-                              <Box component="span" sx={{ ml: 1, fontSize: '0.8rem', fontStyle: 'italic' }}>
-                                (dépassé le délai d'exécution)
-                              </Box>
-                            )}
                           </Box>
-                        </Box>
-                      )}
+                        ) : (
+                          <Box sx={{ fontSize: '0.95rem', color: '#666', fontStyle: 'italic' }}>
+                            Non définie
+                          </Box>
+                        )}
+                      </Box>
                       
                       <Box>
                         <Box sx={{ fontWeight: 500, color: '#666', fontSize: '0.875rem' }}>Nombre total de matériels</Box>
@@ -2370,14 +2474,20 @@ const MarcheList = () => {
                   value={editFormData.dateOrdreService}
                   onChange={e => {
                     const value = e.target.value;
-                    let newDateReceptionDefinitive = editFormData.dateReceptionDefinitive;
+                    let newDateReceptionDefinitive = '';
                     
-                    // Si retenue de garantie est cochée, recalculer la date de réception définitive
-                    if (editFormData.hasRetenueGarantie && value) {
-                      const ordreServiceDate = new Date(value);
-                      const receptionDefinitiveDate = new Date(ordreServiceDate);
-                      receptionDefinitiveDate.setFullYear(receptionDefinitiveDate.getFullYear() + 1);
-                      newDateReceptionDefinitive = receptionDefinitiveDate.toISOString().split('T')[0];
+                    // Calculer la date de réception définitive selon la retenue de garantie
+                    if (value) {
+                      if (editFormData.hasRetenueGarantie) {
+                        // Si retenue de garantie : date ordre de service + 1 an
+                        const ordreServiceDate = new Date(value);
+                        const receptionDefinitiveDate = new Date(ordreServiceDate);
+                        receptionDefinitiveDate.setFullYear(receptionDefinitiveDate.getFullYear() + 1);
+                        newDateReceptionDefinitive = receptionDefinitiveDate.toISOString().split('T')[0];
+                      } else if (editFormData.dateReceptionProvisoire) {
+                        // Sinon : date réception provisoire
+                        newDateReceptionDefinitive = editFormData.dateReceptionProvisoire;
+                      }
                     }
                     
                     setEditFormData({ 
@@ -2411,14 +2521,29 @@ const MarcheList = () => {
                   label="Date réception provisoire"
                   type="date"
                   value={editFormData.dateReceptionProvisoire}
-                  onChange={e => setEditFormData({ ...editFormData, dateReceptionProvisoire: e.target.value })}
+                  onChange={e => {
+                    const value = e.target.value;
+                    let newDateReceptionDefinitive = editFormData.dateReceptionDefinitive;
+                    
+                    // Si pas de retenue de garantie, mettre à jour la date de réception définitive
+                    if (!editFormData.hasRetenueGarantie && value) {
+                      newDateReceptionDefinitive = value;
+                    }
+                    
+                    setEditFormData({ 
+                      ...editFormData, 
+                      dateReceptionProvisoire: value,
+                      dateReceptionDefinitive: newDateReceptionDefinitive
+                    });
+                  }}
                   InputLabelProps={{ shrink: true }}
                   error={!isReceptionDateConsistent(editFormData.dateOrdreService, editFormData.delaiExecution, editFormData.dateReceptionProvisoire)}
                   helperText={
                     !isReceptionDateConsistent(editFormData.dateOrdreService, editFormData.delaiExecution, editFormData.dateReceptionProvisoire) && 
                     editFormData.dateOrdreService && 
-                    editFormData.delaiExecution
-                      ? `Date attendue: ${formatDate(getExpectedReceptionDate(editFormData.dateOrdreService, editFormData.delaiExecution))}`
+                    editFormData.delaiExecution &&
+                    editFormData.dateReceptionProvisoire
+                      ? `La date doit être entre ${formatDate(editFormData.dateOrdreService)} et ${formatDate(getExpectedReceptionDate(editFormData.dateOrdreService, editFormData.delaiExecution))}`
                       : ''
                   }
                   sx={{ 
@@ -2448,15 +2573,16 @@ const MarcheList = () => {
                           const isChecked = e.target.checked;
                           let newDateReceptionDefinitive = '';
                           
-                          // Si on coche la case et qu'il y a une date d'ordre de service, calculer automatiquement
+                          // Calculer la date de réception définitive selon la retenue de garantie
                           if (isChecked && editFormData.dateOrdreService) {
+                            // Si retenue de garantie : date ordre de service + 1 an
                             const ordreServiceDate = new Date(editFormData.dateOrdreService);
                             const receptionDefinitiveDate = new Date(ordreServiceDate);
                             receptionDefinitiveDate.setFullYear(receptionDefinitiveDate.getFullYear() + 1);
                             newDateReceptionDefinitive = receptionDefinitiveDate.toISOString().split('T')[0];
-                          } else if (isChecked) {
-                            // Si on coche mais pas de date d'ordre de service, garder la date existante
-                            newDateReceptionDefinitive = editFormData.dateReceptionDefinitive;
+                          } else if (!isChecked && editFormData.dateReceptionProvisoire) {
+                            // Sinon : date réception provisoire
+                            newDateReceptionDefinitive = editFormData.dateReceptionProvisoire;
                           }
                           
                           setEditFormData({ 
@@ -2471,22 +2597,6 @@ const MarcheList = () => {
                     label="Ce marché a une retenue de garantie"
                     sx={{ fontWeight: 500 }}
                   />
-                  
-                  {editFormData.hasRetenueGarantie && (
-                    <TextField
-                      label="Date de réception définitive"
-                      type="date"
-                      value={editFormData.dateReceptionDefinitive}
-                      onChange={e => setEditFormData({ ...editFormData, dateReceptionDefinitive: e.target.value })}
-                      InputLabelProps={{ shrink: true }}
-                      sx={{ 
-                        '& .MuiOutlinedInput-root': { 
-                          borderRadius: 2,
-                          bgcolor: 'white'
-                        }
-                      }}
-                    />
-                  )}
                 </Box>
                 
               </Box>

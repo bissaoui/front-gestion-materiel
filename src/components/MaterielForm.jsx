@@ -11,6 +11,7 @@ import CategoryIcon from '@mui/icons-material/Category';
 import BrandingWatermarkIcon from '@mui/icons-material/BrandingWatermark';
 import DevicesOtherIcon from '@mui/icons-material/DevicesOther';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import Autocomplete from '@mui/material/Autocomplete';
 
 const MaterielForm = ({
@@ -23,7 +24,8 @@ const MaterielForm = ({
   loading, error, success,
   onSubmit,
   submitLabel = "Ajouter le matériel",
-  disabled
+  disabled,
+  onReset
 }) => (
   <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
     {success && <Alert severity="success">{success}</Alert>}
@@ -129,16 +131,31 @@ const MaterielForm = ({
       isOptionEqualToValue={(opt, val) => opt.id === val.id}
       sx={{ minWidth: 200 }}
     />
-    <Button
-      type="submit"
-      variant="contained"
-      color="primary"
-      disabled={loading}
-      sx={{ minHeight: 44, fontWeight: 600, borderRadius: 3, boxShadow: 2, letterSpacing: 1 }}
-      startIcon={<AddCircleIcon />}
-    >
-      {loading ? <CircularProgress size={22} color="inherit" /> : submitLabel.toUpperCase()}
-    </Button>
+    <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+      <Button
+        type="submit"
+        variant="contained"
+        color="primary"
+        disabled={loading}
+        sx={{ flex: 1, minHeight: 44, fontWeight: 600, borderRadius: 3, boxShadow: 2, letterSpacing: 1 }}
+        startIcon={<AddCircleIcon />}
+      >
+        {loading ? <CircularProgress size={22} color="inherit" /> : submitLabel.toUpperCase()}
+      </Button>
+      {onReset && (
+        <Button
+          type="button"
+          variant="outlined"
+          color="secondary"
+          onClick={onReset}
+          disabled={loading}
+          sx={{ minHeight: 44, fontWeight: 600, borderRadius: 3, letterSpacing: 1 }}
+          startIcon={<RefreshIcon />}
+        >
+          RÉINITIALISER
+        </Button>
+      )}
+    </Box>
   </Box>
 );
 

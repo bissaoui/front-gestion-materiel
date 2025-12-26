@@ -107,6 +107,7 @@ const navGroups = [
     items: [
       { text: 'Articles', icon: <ListAltIcon />, to: '/articles' },
       { text: 'Demandes', icon: <AssignmentIcon />, to: '/demandes' },
+      { text: 'Besoins Exprimés', icon: <AssignmentIcon />, to: '/admin/besoins-exprimes' },
     ]
   }
 ];

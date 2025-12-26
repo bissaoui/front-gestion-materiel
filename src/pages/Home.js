@@ -1,5 +1,5 @@
 import React from "react";
-import MuiLayout from "./Admin/MuiLayout";
+import LayoutWrapper from "../components/LayoutWrapper";
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
@@ -35,6 +35,6 @@ const HomeContent = () => (
   </Box>
 );
 
-const Home = () => <MuiLayout children={<HomeContent />} />;
+const Home = () => <LayoutWrapper><HomeContent /></LayoutWrapper>;
 
 export default Home;
