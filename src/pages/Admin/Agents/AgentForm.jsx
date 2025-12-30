@@ -97,10 +97,45 @@ const AgentForm = ({ agent, onSuccess, onCancel }) => {
       processedValue = value === '' ? '' : value; // Garder comme chaîne
     }
     
-    setForm(prev => ({ 
-      ...prev, 
-      [name]: processedValue
-    }));
+    setForm(prev => {
+      const newForm = { ...prev, [name]: processedValue };
+      
+      // Si la direction change, réinitialiser le département et le service
+      if (name === 'direction') {
+        newForm.departement = '';
+        newForm.service = '';
+      }
+      
+      // Si le département change (ou est vidé), réinitialiser le service
+      if (name === 'departement') {
+        newForm.service = '';
+        
+        // Si le département est vidé, s'assurer que le service est aussi vidé
+        if (!processedValue) {
+          newForm.service = '';
+        } else {
+          // Vérifier que le service sélectionné appartient au nouveau département
+          // Si le service actuel n'appartient pas au nouveau département, le réinitialiser
+          if (prev.service) {
+            const serviceActuel = services.find(s => s.id === Number(prev.service));
+            if (serviceActuel && serviceActuel.departementId !== Number(processedValue)) {
+              newForm.service = '';
+            }
+          }
+        }
+      }
+      
+      // Si le service change, vérifier qu'il appartient au département sélectionné
+      if (name === 'service' && processedValue && prev.departement) {
+        const serviceSelectionne = services.find(s => s.id === Number(processedValue));
+        if (serviceSelectionne && serviceSelectionne.departementId !== Number(prev.departement)) {
+          // Le service n'appartient pas au département, ne pas le changer
+          return prev;
+        }
+      }
+      
+      return newForm;
+    });
     setError('');
     setSuccess('');
   };

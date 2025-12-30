@@ -34,6 +34,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import EditIcon from '@mui/icons-material/Edit';
 import Collapse from '@mui/material/Collapse';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
@@ -1481,18 +1482,14 @@ const MarcheList = () => {
 
   const handleDelete = async (id) => {
     const linkedCount = getLinkedCount(id);
+    
+    // Ne pas permettre la suppression si le marché contient des matériels
     if (linkedCount > 0) {
-      const proceed = window.confirm(`Ce marché est lié à ${linkedCount} matériel(s). Voulez-vous d'abord les détacher puis supprimer le marché ?`);
-      if (!proceed) return;
-      // Détacher tous les matériels liés
-      const toUnlink = getLinkedMateriels(id);
-      for (const mat of toUnlink) {
-        try {
-          const updated = { ...mat, id: mat.id, marcherId: null, marcheId: null };
-          await updateMateriel(mat.id, updated);
-        } catch (_) { /* ignore per item */ }
-      }
-    } else if (!window.confirm('Supprimer ce marché ?')) {
+      setError(`Impossible de supprimer ce marché. Il est lié à ${linkedCount} matériel(s). Veuillez d'abord détacher les matériels.`);
+      return;
+    }
+    
+    if (!window.confirm('Supprimer ce marché ?')) {
       return;
     }
     setLoading(true);
@@ -2079,7 +2076,32 @@ const MarcheList = () => {
                           >
                             Décharges
                           </Button>
-                          <Button variant="outlined" color="error" size="small" startIcon={<DeleteIcon />} onClick={() => handleDelete(m.id)}>Supprimer</Button>
+                          {(() => {
+                            const linkedCount = getLinkedCount(m.id);
+                            const hasMaterials = linkedCount > 0;
+                            const deleteButton = (
+                              <Button 
+                                variant="outlined" 
+                                color="error" 
+                                size="small" 
+                                startIcon={<DeleteIcon />} 
+                                onClick={() => handleDelete(m.id)}
+                                disabled={hasMaterials || loading}
+                              >
+                                Supprimer
+                              </Button>
+                            );
+                            
+                            if (hasMaterials) {
+                              return (
+                                <Tooltip title={`Ce marché contient ${linkedCount} matériel(s). Veuillez d'abord détacher les matériels avant de supprimer.`}>
+                                  <span>{deleteButton}</span>
+                                </Tooltip>
+                              );
+                            }
+                            
+                            return deleteButton;
+                          })()}
                         </Box>
                       </TableCell>
                     </TableRow>
